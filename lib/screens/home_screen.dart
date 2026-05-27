@@ -96,15 +96,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
   }
 
-  void _showAddSemesterDialog() {
+  void _showAddFolderDialog() {
     final controller = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Semester'),
+        title: const Text('Add Folder'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(hintText: 'e.g. Semester 1'),
+          decoration: const InputDecoration(hintText: 'e.g. Workspace'),
           autofocus: true,
         ),
         actions: [
@@ -115,7 +115,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ElevatedButton(
             onPressed: () {
               if (controller.text.isNotEmpty) {
-                ref.read(databaseProvider.notifier).addSemester(controller.text);
+                ref.read(databaseProvider.notifier).addFolder(controller.text, null);
               }
               Navigator.pop(context);
             },
@@ -135,10 +135,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final authState = ref.watch(authProvider);
     final database = ref.watch(databaseProvider);
     
-    final semesters = database.semesters.values.toList()
+    final rootFolders = database.folders.values
+        .where((f) => f.parentId == null)
+        .toList()
       ..sort((a, b) => a.order.compareTo(b.order));
 
-    final inboxCount = database.files.values.where((f) => f.semesterId.isEmpty && f.subjectId.isEmpty).length;
+    final inboxCount = database.files.values.where((f) => f.folderId == null).length;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -214,7 +216,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  'Your Semesters',
+                  'Your Folders',
                   style: textTheme.headlineMedium,
                 ),
                 InkWell(
@@ -235,12 +237,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 24),
 
             // Dynamic Content Area
-            if (semesters.isEmpty)
+            if (rootFolders.isEmpty)
               Center(
                 child: Padding(
                   padding: const EdgeInsets.all(32.0),
                   child: Text(
-                    "No semesters found. Tap + to create one.",
+                    "No folders found. Tap + to create one.",
                     style: textTheme.bodyLarge?.copyWith(color: colorScheme.outline),
                   ),
                 ),
@@ -255,19 +257,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: semesters.length,
+                itemCount: rootFolders.length,
                 itemBuilder: (context, index) {
-                  final semester = semesters[index];
-                  // Pass the semester ID to the folder route. 
-                  // We'll map the key from the map so we need to find it.
-                  final semesterId = database.semesters.entries
-                      .firstWhere((e) => e.value == semester)
-                      .key;
-                      
-                  return _buildSemesterCard(
+                  final folder = rootFolders[index];
+                  return _buildFolderCard(
                     context: context, 
-                    semester: semester, 
-                    semesterId: semesterId
+                    folder: folder, 
                   );
                 },
               ),
@@ -275,7 +270,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddSemesterDialog,
+        onPressed: _showAddFolderDialog,
         backgroundColor: colorScheme.secondaryContainer,
         foregroundColor: colorScheme.onSecondaryContainer,
         shape: RoundedRectangleBorder(
@@ -287,17 +282,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildSemesterCard({
+  Widget _buildFolderCard({
     required BuildContext context,
-    required SemesterModel semester,
-    required String semesterId,
+    required FolderModel folder,
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     
     return InkWell(
       onTap: () {
-        context.push('/folder/$semesterId');
+        context.push('/folder/${folder.id}', extra: 1); // Depth is 1 for children of root folders
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(
@@ -337,14 +331,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  semester.name,
+                  folder.name,
                   style: theme.textTheme.headlineSmall?.copyWith(fontSize: 16),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  "Semester Folder",
+                  "Folder",
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.outline,
                     fontSize: 12,

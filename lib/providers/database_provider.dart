@@ -41,23 +41,59 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     state = await syncService.syncWithCloud(state);
   }
 
-  Future<void> addSemester(String name) async {
-    final id = 'sem_${DateTime.now().millisecondsSinceEpoch}';
-    final newSem = SemesterModel(name: name, order: state.semesters.length + 1);
+  Future<void> addFolder(String name, String? parentId) async {
+    const uuid = Uuid();
+    final id = 'folder_${uuid.v4()}';
     
-    final updatedSemesters = Map<String, SemesterModel>.from(state.semesters)..[id] = newSem;
-    state = state.copyWith(semesters: updatedSemesters);
+    // Count how many items currently share the same parentId to set order
+    final order = state.folders.values.where((f) => f.parentId == parentId).length + 1;
+    
+    final newFolder = FolderModel(
+      id: id,
+      name: name,
+      parentId: parentId,
+      order: order,
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+    );
+    
+    final updatedFolders = Map<String, FolderModel>.from(state.folders)..[id] = newFolder;
+    state = state.copyWith(folders: updatedFolders);
     
     await ref.read(syncServiceProvider).saveAndSync(state);
   }
 
-  Future<void> addSubject(String name, String semesterId) async {
-    final id = 'subj_${DateTime.now().millisecondsSinceEpoch}';
-    final newSubj = SubjectModel(name: name, semesterId: semesterId);
-    
-    final updatedSubjects = Map<String, SubjectModel>.from(state.subjects)..[id] = newSubj;
-    state = state.copyWith(subjects: updatedSubjects);
-    
+  Future<void> deleteFolder(String folderId) async {
+    // 1. Find all child folders recursively
+    final foldersToDelete = <String>{folderId};
+    bool added;
+    do {
+      added = false;
+      for (final f in state.folders.values) {
+        if (f.parentId != null && foldersToDelete.contains(f.parentId) && !foldersToDelete.contains(f.id)) {
+          foldersToDelete.add(f.id);
+          added = true;
+        }
+      }
+    } while (added);
+
+    // 2. Find all files in these folders
+    final filesToDelete = state.files.values
+        .where((f) => f.folderId != null && foldersToDelete.contains(f.folderId))
+        .map((f) => state.files.entries.firstWhere((e) => e.value == f).key)
+        .toList();
+
+    // 3. Delete files (which handles drive and local cache deletion)
+    if (filesToDelete.isNotEmpty) {
+      await deleteFiles(filesToDelete);
+    }
+
+    // 4. Delete the folders from state
+    final updatedFolders = Map<String, FolderModel>.from(state.folders);
+    for (final id in foldersToDelete) {
+      updatedFolders.remove(id);
+    }
+
+    state = state.copyWith(folders: updatedFolders);
     await ref.read(syncServiceProvider).saveAndSync(state);
   }
 
@@ -119,8 +155,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
         final newFile = QuireFileModel(
           name: finalName,
           mimeType: mimeType,
-          semesterId: '', // Uncategorized
-          subjectId: '',  // Uncategorized
+          folderId: null, // Uncategorized (Inbox)
           addedAt: DateTime.now().millisecondsSinceEpoch,
           tags: [],
           syncStatus: 'pending',
@@ -194,7 +229,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     }
   }
 
-  Future<Future<void> Function()> moveFiles(List<String> fileIds, String newSemesterId, String newSubjectId) async {
+  Future<Future<void> Function()> moveFiles(List<String> fileIds, String? newFolderId) async {
     final originalStates = <String, QuireFileModel>{};
     final updatedFiles = Map<String, QuireFileModel>.from(state.files);
     
@@ -202,8 +237,8 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
       if (updatedFiles.containsKey(id)) {
         originalStates[id] = updatedFiles[id]!;
         updatedFiles[id] = updatedFiles[id]!.copyWith(
-          semesterId: newSemesterId,
-          subjectId: newSubjectId,
+          folderId: newFolderId,
+          clearFolderId: newFolderId == null,
         );
       }
     }

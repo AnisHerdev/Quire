@@ -5,8 +5,7 @@ import '../screens/splash_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../screens/home_screen.dart';
-import '../screens/file_list_screen.dart';
-import '../screens/subject_files_screen.dart';
+import '../screens/directory_screen.dart';
 import '../screens/inbox_screen.dart';
 import '../screens/search_results_screen.dart';
 import '../screens/pdf_viewer_screen.dart';
@@ -59,14 +58,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/folder/:id',
         builder: (context, state) {
           final id = state.pathParameters['id']!;
-          return FileListScreen(folderId: id);
-        },
-      ),
-      GoRoute(
-        path: '/subject/:id',
-        builder: (context, state) {
-          final id = state.pathParameters['id']!;
-          return SubjectFilesScreen(subjectId: id);
+          final depth = state.extra as int? ?? 1;
+          return DirectoryScreen(folderId: id, depth: depth);
         },
       ),
       GoRoute(

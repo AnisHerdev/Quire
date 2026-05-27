@@ -6,7 +6,6 @@ import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:path_provider/path_provider.dart';
 // ignore: depend_on_referenced_packages
 import 'package:http/http.dart' as http;
-import '../models/note_file_model.dart';
 
 class _GoogleAuthClient extends http.BaseClient {
   final Map<String, String> _headers;

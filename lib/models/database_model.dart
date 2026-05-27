@@ -32,66 +32,52 @@ class SyncMetadata {
   }
 }
 
-class SemesterModel {
+class FolderModel {
+  final String id;
   final String name;
+  final String? parentId;
   final int order;
+  final int createdAt;
 
-  const SemesterModel({
+  const FolderModel({
+    required this.id,
     required this.name,
+    this.parentId,
     required this.order,
+    required this.createdAt,
   });
 
-  factory SemesterModel.fromJson(Map<String, dynamic> json) {
-    return SemesterModel(
-      name: json['name'] as String? ?? 'Unknown Semester',
+  factory FolderModel.fromJson(Map<String, dynamic> json) {
+    return FolderModel(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? 'Unnamed Folder',
+      parentId: json['parentId'] as String?,
       order: json['order'] as int? ?? 0,
+      createdAt: json['createdAt'] as int? ?? 0,
     );
   }
 
   Map<String, dynamic> toJson() => {
+        'id': id,
         'name': name,
+        if (parentId != null) 'parentId': parentId,
         'order': order,
+        'createdAt': createdAt,
       };
 
-  SemesterModel copyWith({
+  FolderModel copyWith({
+    String? id,
     String? name,
+    String? parentId,
     int? order,
+    int? createdAt,
   }) {
-    return SemesterModel(
+    return FolderModel(
+      id: id ?? this.id,
       name: name ?? this.name,
+      parentId: parentId ?? this.parentId,
       order: order ?? this.order,
-    );
-  }
-}
-
-class SubjectModel {
-  final String name;
-  final String semesterId;
-
-  const SubjectModel({
-    required this.name,
-    required this.semesterId,
-  });
-
-  factory SubjectModel.fromJson(Map<String, dynamic> json) {
-    return SubjectModel(
-      name: json['name'] as String? ?? 'Unknown Subject',
-      semesterId: json['semesterId'] as String? ?? '',
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-        'name': name,
-        'semesterId': semesterId,
-      };
-
-  SubjectModel copyWith({
-    String? name,
-    String? semesterId,
-  }) {
-    return SubjectModel(
-      name: name ?? this.name,
-      semesterId: semesterId ?? this.semesterId,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 }
@@ -99,8 +85,7 @@ class SubjectModel {
 class QuireFileModel {
   final String name;
   final String mimeType;
-  final String semesterId;
-  final String subjectId;
+  final String? folderId;
   final int addedAt;
   final List<String> tags;
   final String? driveId;
@@ -109,8 +94,7 @@ class QuireFileModel {
   const QuireFileModel({
     required this.name,
     required this.mimeType,
-    required this.semesterId,
-    required this.subjectId,
+    this.folderId,
     required this.addedAt,
     required this.tags,
     this.driveId,
@@ -121,8 +105,7 @@ class QuireFileModel {
     return QuireFileModel(
       name: json['name'] as String? ?? 'Unnamed File',
       mimeType: json['mimeType'] as String? ?? '',
-      semesterId: json['semesterId'] as String? ?? '',
-      subjectId: json['subjectId'] as String? ?? '',
+      folderId: (json['folderId'] as String?)?.isNotEmpty == true ? json['folderId'] : null,
       addedAt: json['addedAt'] as int? ?? 0,
       tags: (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       driveId: json['driveId'] as String?,
@@ -133,8 +116,7 @@ class QuireFileModel {
   Map<String, dynamic> toJson() => {
         'name': name,
         'mimeType': mimeType,
-        'semesterId': semesterId,
-        'subjectId': subjectId,
+        if (folderId != null) 'folderId': folderId,
         'addedAt': addedAt,
         'tags': tags,
         if (driveId != null) 'driveId': driveId,
@@ -144,8 +126,8 @@ class QuireFileModel {
   QuireFileModel copyWith({
     String? name,
     String? mimeType,
-    String? semesterId,
-    String? subjectId,
+    String? folderId,
+    bool clearFolderId = false,
     int? addedAt,
     List<String>? tags,
     String? driveId,
@@ -154,8 +136,7 @@ class QuireFileModel {
     return QuireFileModel(
       name: name ?? this.name,
       mimeType: mimeType ?? this.mimeType,
-      semesterId: semesterId ?? this.semesterId,
-      subjectId: subjectId ?? this.subjectId,
+      folderId: clearFolderId ? null : (folderId ?? this.folderId),
       addedAt: addedAt ?? this.addedAt,
       tags: tags ?? this.tags,
       driveId: driveId ?? this.driveId,
@@ -166,14 +147,12 @@ class QuireFileModel {
 
 class QuireDatabase {
   final SyncMetadata syncMetadata;
-  final Map<String, SemesterModel> semesters;
-  final Map<String, SubjectModel> subjects;
+  final Map<String, FolderModel> folders;
   final Map<String, QuireFileModel> files;
 
   const QuireDatabase({
     required this.syncMetadata,
-    required this.semesters,
-    required this.subjects,
+    required this.folders,
     required this.files,
   });
 
@@ -181,46 +160,47 @@ class QuireDatabase {
     return QuireDatabase(
       syncMetadata: SyncMetadata(
         lastSyncedAt: DateTime.now().millisecondsSinceEpoch,
-        version: '1.0',
+        version: '2.0',
       ),
-      semesters: const {},
-      subjects: const {},
+      folders: const {},
       files: const {},
     );
   }
 
   factory QuireDatabase.fromJson(Map<String, dynamic> json) {
-    final semestersJson = json['semesters'] as Map<String, dynamic>? ?? {};
-    final subjectsJson = json['subjects'] as Map<String, dynamic>? ?? {};
+    // If version is < 2.0, force a fresh start by returning empty.
+    final syncMetaJson = json['syncMetadata'] as Map<String, dynamic>?;
+    final version = syncMetaJson?['version'] as String? ?? '1.0';
+    if (!version.startsWith('2.')) {
+      return QuireDatabase.empty();
+    }
+
+    final foldersJson = json['folders'] as Map<String, dynamic>? ?? {};
     final filesJson = json['files'] as Map<String, dynamic>? ?? {};
 
     return QuireDatabase(
-      syncMetadata: json['syncMetadata'] != null 
-          ? SyncMetadata.fromJson(json['syncMetadata'] as Map<String, dynamic>)
-          : SyncMetadata(lastSyncedAt: 0, version: '1.0'),
-      semesters: semestersJson.map((k, v) => MapEntry(k, SemesterModel.fromJson(v as Map<String, dynamic>))),
-      subjects: subjectsJson.map((k, v) => MapEntry(k, SubjectModel.fromJson(v as Map<String, dynamic>))),
+      syncMetadata: syncMetaJson != null 
+          ? SyncMetadata.fromJson(syncMetaJson)
+          : SyncMetadata(lastSyncedAt: 0, version: '2.0'),
+      folders: foldersJson.map((k, v) => MapEntry(k, FolderModel.fromJson(v as Map<String, dynamic>))),
       files: filesJson.map((k, v) => MapEntry(k, QuireFileModel.fromJson(v as Map<String, dynamic>))),
     );
   }
 
   Map<String, dynamic> toJson() => {
         'syncMetadata': syncMetadata.toJson(),
-        'semesters': semesters.map((k, v) => MapEntry(k, v.toJson())),
-        'subjects': subjects.map((k, v) => MapEntry(k, v.toJson())),
+        'folders': folders.map((k, v) => MapEntry(k, v.toJson())),
         'files': files.map((k, v) => MapEntry(k, v.toJson())),
       };
 
   QuireDatabase copyWith({
     SyncMetadata? syncMetadata,
-    Map<String, SemesterModel>? semesters,
-    Map<String, SubjectModel>? subjects,
+    Map<String, FolderModel>? folders,
     Map<String, QuireFileModel>? files,
   }) {
     return QuireDatabase(
       syncMetadata: syncMetadata ?? this.syncMetadata,
-      semesters: semesters ?? this.semesters,
-      subjects: subjects ?? this.subjects,
+      folders: folders ?? this.folders,
       files: files ?? this.files,
     );
   }

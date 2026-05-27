@@ -69,13 +69,11 @@ class SyncService {
 
       final cloudDb = QuireDatabase.fromJson(jsonDecode(cloudJsonString));
       
-      final mergedSemesters = Map<String, SemesterModel>.from(cloudDb.semesters)..addAll(localDb.semesters);
-      final mergedSubjects = Map<String, SubjectModel>.from(cloudDb.subjects)..addAll(localDb.subjects);
+      final mergedFolders = Map<String, FolderModel>.from(cloudDb.folders)..addAll(localDb.folders);
       final mergedFiles = Map<String, QuireFileModel>.from(cloudDb.files)..addAll(localDb.files);
 
       final finalDb = localDb.copyWith(
-        semesters: mergedSemesters,
-        subjects: mergedSubjects,
+        folders: mergedFolders,
         files: mergedFiles,
       );
 

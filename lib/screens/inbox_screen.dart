@@ -182,7 +182,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     
     // Uncategorized files
     final filesEntry = database.files.entries
-        .where((e) => e.value.semesterId.isEmpty && e.value.subjectId.isEmpty)
+        .where((e) => e.value.folderId == null)
         .toList();
 
     return Scaffold(
