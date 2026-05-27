@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../providers/drive_provider.dart';
 
 class OnboardingScreen extends ConsumerWidget {
   const OnboardingScreen({super.key});
@@ -11,8 +10,6 @@ class OnboardingScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
-    
-    final driveState = ref.watch(driveFolderProvider);
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -79,13 +76,9 @@ class OnboardingScreen extends ConsumerWidget {
                   children: [
                     Center(
                       child: Icon(
-                        driveState.quireFolderId != null 
-                            ? Icons.cloud_done 
-                            : Icons.cloud_sync,
+                        Icons.cloud_done,
                         size: 64,
-                        color: driveState.quireFolderId != null 
-                            ? Colors.green.withOpacity(0.4) 
-                            : colorScheme.primary.withOpacity(0.2),
+                        color: Colors.green.withOpacity(0.4),
                       ),
                     ),
                     Positioned(
@@ -101,24 +94,16 @@ class OnboardingScreen extends ConsumerWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              driveState.quireFolderId != null 
-                                  ? Icons.check_circle 
-                                  : Icons.cloud_sync, 
+                            const Icon(
+                              Icons.check_circle, 
                               size: 20, 
-                              color: driveState.quireFolderId != null 
-                                  ? Colors.green 
-                                  : colorScheme.primary
+                              color: Colors.green
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              driveState.quireFolderId != null 
-                                  ? 'Folder Created' 
-                                  : 'Drive Sync Ready',
+                              'Drive Sync Ready',
                               style: textTheme.labelSmall?.copyWith(
-                                color: driveState.quireFolderId != null 
-                                    ? Colors.green 
-                                    : colorScheme.primary
+                                color: Colors.green
                               ),
                             ),
                           ],
@@ -132,7 +117,7 @@ class OnboardingScreen extends ConsumerWidget {
 
               // Content Area
               Text(
-                "We'll create a Quire-Notes folder in your Google Drive",
+                "You're all set up!",
                 style: textTheme.headlineMedium?.copyWith(color: colorScheme.primary),
                 textAlign: TextAlign.center,
               ),
@@ -160,7 +145,7 @@ class OnboardingScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      "You add your notes there — organize them however you want.",
+                      "Quire instantly syncs your PDFs and PowerPoint files to Google Drive in the background.",
                       style: textTheme.bodyLarge,
                     ),
                   ],
@@ -186,11 +171,11 @@ class OnboardingScreen extends ConsumerWidget {
                         color: colorScheme.secondaryContainer.withOpacity(0.3),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.travel_explore, color: colorScheme.secondary, size: 20),
+                      child: Icon(Icons.share, color: colorScheme.secondary, size: 20),
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      "We read the content so you can search across everything.",
+                      "Just hit 'Share' on any document from WhatsApp and select Quire!",
                       style: textTheme.bodyLarge,
                     ),
                   ],
@@ -198,89 +183,31 @@ class OnboardingScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 48),
 
-              // State-based UI Area
-              if (driveState.isLoading) ...[
-                const CircularProgressIndicator(),
-                const SizedBox(height: 16),
-                Text("Setting up your Quire-Notes folder...", style: textTheme.bodyMedium),
-              ] else if (driveState.error != null) ...[
-                Text(
-                  "Error: ${driveState.error}",
-                  style: textTheme.bodyMedium?.copyWith(color: colorScheme.error),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    ref.read(driveFolderProvider.notifier).initialize();
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: const Text("Retry"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: colorScheme.errorContainer,
-                    foregroundColor: colorScheme.onErrorContainer,
+              ElevatedButton(
+                onPressed: () {
+                  context.go('/home');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                  minimumSize: const Size(double.infinity, 56),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
                   ),
                 ),
-              ] else if (driveState.quireFolderId != null) ...[
-                Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.check_circle, color: Colors.green),
+                    Text('Get Started', style: textTheme.labelLarge),
                     const SizedBox(width: 8),
-                    Text("Ready! Your Quire-Notes folder is set up.", style: textTheme.bodyLarge),
+                    const Icon(Icons.arrow_forward, size: 20),
                   ],
                 ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () {
-                    context.go('/home');
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: colorScheme.primary,
-                    foregroundColor: colorScheme.onPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
-                    minimumSize: const Size(double.infinity, 56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('Get Started', style: textTheme.labelLarge),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward, size: 20),
-                    ],
-                  ),
-                ),
-              ] else ...[
-                ElevatedButton(
-                  onPressed: () {
-                    ref.read(driveFolderProvider.notifier).initialize();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: colorScheme.primary,
-                    foregroundColor: colorScheme.onPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
-                    minimumSize: const Size(double.infinity, 56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('Setup Drive Folder', style: textTheme.labelLarge),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward, size: 20),
-                    ],
-                  ),
-                ),
-              ],
-
+              ),
               const SizedBox(height: 16),
               Text(
-                "We only request access to the specific folder we create. Read our Privacy Policy.",
+                "We securely store your metadata on your Drive. Read our Privacy Policy.",
                 style: textTheme.labelSmall?.copyWith(
                   color: colorScheme.onSurfaceVariant.withOpacity(0.8),
                 ),

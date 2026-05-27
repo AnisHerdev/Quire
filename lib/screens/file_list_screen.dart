@@ -1,21 +1,70 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../providers/drive_provider.dart';
-import '../models/note_file_model.dart';
+import '../providers/database_provider.dart';
+import '../models/database_model.dart';
 
-class FileListScreen extends ConsumerWidget {
-  final String folderId;
+class FileListScreen extends ConsumerStatefulWidget {
+  final String folderId; // Represents semesterId
 
   const FileListScreen({super.key, required this.folderId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FileListScreen> createState() => _FileListScreenState();
+}
+
+class _FileListScreenState extends ConsumerState<FileListScreen> {
+  void _showAddSubjectDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Subject'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'e.g. Physics'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.isNotEmpty) {
+                ref.read(databaseProvider.notifier).addSubject(controller.text, widget.folderId);
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
 
-    final filesAsyncValue = ref.watch(folderFilesProvider(folderId));
+    final database = ref.watch(databaseProvider);
+    final semesterName = database.semesters[widget.folderId]?.name ?? 'Semester View';
+
+    // Get subjects for this semester
+    final subjects = database.subjects.entries
+        .where((e) => e.value.semesterId == widget.folderId)
+        .toList();
+
+    // Get files for this semester (that might not have a specific subject yet)
+    final files = database.files.values
+        .where((f) => f.semesterId == widget.folderId && f.subjectId.isEmpty)
+        .toList();
+
+    // Total items to display (subjects act as folders, files as items)
+    final totalItems = subjects.length + files.length;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -31,7 +80,7 @@ class FileListScreen extends ConsumerWidget {
           },
         ),
         title: Text(
-          'Folder', // Could be passed as a param or we can fetch folder metadata later
+          semesterName,
           style: textTheme.headlineMedium?.copyWith(
             color: colorScheme.primary,
           ),
@@ -43,74 +92,130 @@ class FileListScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: filesAsyncValue.when(
-        data: (files) {
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Breadcrumbs
+            Row(
               children: [
-                // Breadcrumbs (simplified for now, full path handled in recursive fetch later)
-                Row(
-                  children: [
-                    Icon(Icons.home, size: 18, color: colorScheme.onSurfaceVariant),
-                    const SizedBox(width: 4),
-                    Text('Home', style: textTheme.labelLarge?.copyWith(color: colorScheme.onSurfaceVariant)),
-                    const SizedBox(width: 8),
-                    Icon(Icons.chevron_right, size: 16, color: colorScheme.outlineVariant),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text('Folder View', style: textTheme.labelLarge?.copyWith(color: colorScheme.onSurfaceVariant)),
-                    ),
-                  ],
+                Icon(Icons.home, size: 18, color: colorScheme.onSurfaceVariant),
+                const SizedBox(width: 4),
+                Text('Home', style: textTheme.labelLarge?.copyWith(color: colorScheme.onSurfaceVariant)),
+                const SizedBox(width: 8),
+                Icon(Icons.chevron_right, size: 16, color: colorScheme.outlineVariant),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(semesterName, style: textTheme.labelLarge?.copyWith(color: colorScheme.onSurfaceVariant)),
                 ),
-                const SizedBox(height: 32),
-
-                if (files.isEmpty)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32.0),
-                      child: Text(
-                        "This folder is empty.",
-                        style: textTheme.bodyLarge?.copyWith(color: colorScheme.outline),
-                      ),
-                    ),
-                  )
-                else
-                  GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 0.85,
-                    ),
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: files.length,
-                    itemBuilder: (context, index) {
-                      final file = files[index];
-                      return _buildFileCard(context: context, file: file);
-                    },
-                  ),
               ],
             ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.error_outline, size: 48, color: colorScheme.error),
-              const SizedBox(height: 16),
-              Text('Error loading files: $err', textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref.refresh(folderFilesProvider(folderId)),
-                child: const Text('Retry'),
+            const SizedBox(height: 32),
+
+            if (totalItems == 0)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Text(
+                    "This semester is empty. Tap + to add a Subject.",
+                    style: textTheme.bodyLarge?.copyWith(color: colorScheme.outline),
+                  ),
+                ),
               )
-            ],
-          ),
+            else
+              GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.85,
+                ),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: totalItems,
+                itemBuilder: (context, index) {
+                  if (index < subjects.length) {
+                    final entry = subjects[index];
+                    return _buildSubjectCard(context: context, subject: entry.value, subjectId: entry.key);
+                  } else {
+                    final file = files[index - subjects.length];
+                    return _buildFileCard(context: context, file: file);
+                  }
+                },
+              ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddSubjectDialog,
+        backgroundColor: colorScheme.secondaryContainer,
+        foregroundColor: colorScheme.onSecondaryContainer,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Icon(Icons.create_new_folder, size: 28),
+      ),
+    );
+  }
+
+  Widget _buildSubjectCard({
+    required BuildContext context,
+    required SubjectModel subject,
+    required String subjectId,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+
+    return InkWell(
+      onTap: () {
+        // We could route to a subject screen or filter here. 
+        // For now, assume we'll just show the files for the subject.
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colorScheme.surfaceVariant),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.primaryContainer.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.menu_book, color: colorScheme.primaryContainer, size: 20),
+                ),
+                Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant, size: 20),
+              ],
+            ),
+            const Spacer(),
+            Text(
+              subject.name,
+              style: textTheme.labelLarge,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text("Subject Folder", style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+          ],
         ),
       ),
     );
@@ -118,22 +223,17 @@ class FileListScreen extends ConsumerWidget {
 
   Widget _buildFileCard({
     required BuildContext context,
-    required NoteFileModel file,
+    required QuireFileModel file,
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
 
-    final isFolder = file.isFolder;
-    
     // Determine icons and colors based on mimeType
     IconData icon;
     Color iconColor;
     
-    if (isFolder) {
-      icon = Icons.folder;
-      iconColor = colorScheme.primaryContainer;
-    } else if (file.mimeType.contains('pdf')) {
+    if (file.mimeType.contains('pdf')) {
       icon = Icons.picture_as_pdf;
       iconColor = Colors.red;
     } else if (file.mimeType.contains('presentation') || file.mimeType.contains('powerpoint')) {
@@ -150,21 +250,14 @@ class FileListScreen extends ConsumerWidget {
       iconColor = Colors.grey;
     }
 
-    final String sizeStr = file.size != null 
-        ? '${(file.size! / 1024).toStringAsFixed(1)} KB' 
-        : (isFolder ? '' : 'Unknown');
-        
-    final String dateStr = file.modifiedTime != null 
-        ? '${file.modifiedTime!.year}-${file.modifiedTime!.month.toString().padLeft(2, '0')}-${file.modifiedTime!.day.toString().padLeft(2, '0')}' 
-        : '';
+    final date = DateTime.fromMillisecondsSinceEpoch(file.addedAt);
+    final String dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
     return InkWell(
       onTap: () {
-        if (isFolder) {
-          context.push('/folder/${file.id}');
-        } else {
-          context.push('/pdf-viewer/${file.id}');
-        }
+        // Passing the actual Drive file ID that is the key in the database
+        // Need to find the key in the db, but for now we just pass the name or key if we passed it in.
+        // Let's assume we update the method signature to accept the fileKey later.
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(
@@ -209,12 +302,6 @@ class FileListScreen extends ConsumerWidget {
             const SizedBox(height: 4),
             Row(
               children: [
-                if (!isFolder && sizeStr.isNotEmpty) ...[
-                  Text(sizeStr, style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
-                  const SizedBox(width: 4),
-                  Container(width: 4, height: 4, decoration: BoxDecoration(color: colorScheme.outlineVariant, shape: BoxShape.circle)),
-                  const SizedBox(width: 4),
-                ],
                 Expanded(child: Text(dateStr, style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant), overflow: TextOverflow.ellipsis)),
               ],
             ),

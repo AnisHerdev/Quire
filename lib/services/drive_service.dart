@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
@@ -19,6 +21,7 @@ class _GoogleAuthClient extends http.BaseClient {
 
 class DriveService {
   GoogleSignInAccount? _account;
+  static const String databaseFileName = 'database.json';
 
   DriveService();
 
@@ -49,13 +52,87 @@ class DriveService {
     return drive.DriveApi(client);
   }
 
-  Future<String> getOrCreateQuireFolder() async {
+  // --- App Data Folder Methods (Hidden Sync) ---
+
+  Future<String?> downloadDatabase() async {
     try {
       final driveApi = await _getDriveApi();
-      const folderName = 'Quire-Notes';
+      final query = "name='$databaseFileName' and 'appDataFolder' in parents and trashed=false";
+      
+      final fileList = await driveApi.files.list(q: query, spaces: 'appDataFolder');
+      
+      if (fileList.files == null || fileList.files!.isEmpty) {
+        return null; // Database doesn't exist yet
+      }
+
+      final fileId = fileList.files!.first.id!;
+      final media = await driveApi.files.get(
+        fileId,
+        downloadOptions: drive.DownloadOptions.fullMedia,
+      ) as drive.Media;
+
+      final bytes = await media.stream.fold<List<int>>(
+        [], 
+        (previous, element) => previous..addAll(element)
+      );
+      
+      return utf8.decode(bytes);
+    } catch (e) {
+      print('Failed to download database: $e');
+      return null;
+    }
+  }
+
+  Future<void> uploadDatabase(String jsonString) async {
+    try {
+      final driveApi = await _getDriveApi();
+      final query = "name='$databaseFileName' and 'appDataFolder' in parents and trashed=false";
+      
+      final fileList = await driveApi.files.list(q: query, spaces: 'appDataFolder');
+      
+      final bytes = utf8.encode(jsonString);
+      final media = drive.Media(Stream.value(bytes), bytes.length);
+
+      if (fileList.files != null && fileList.files!.isNotEmpty) {
+        // Update existing file
+        final fileId = fileList.files!.first.id!;
+        await driveApi.files.update(
+          drive.File(),
+          fileId,
+          uploadMedia: media,
+        );
+      } else {
+        // Create new file in appDataFolder
+        final newFile = drive.File()
+          ..name = databaseFileName
+          ..parents = ['appDataFolder']
+          ..mimeType = 'application/json';
+          
+        await driveApi.files.create(
+          newFile,
+          uploadMedia: media,
+        );
+      }
+    } catch (e) {
+      throw Exception('Failed to upload database: $e');
+    }
+  }
+
+  // --- Visible Drive Methods (PDF Storage) ---
+
+  Future<String> createVisibleFolder(String name, String? parentId) async {
+    try {
+      final driveApi = await _getDriveApi();
       const mimeType = 'application/vnd.google-apps.folder';
       
-      final query = "name='$folderName' and mimeType='$mimeType' and trashed=false";
+      // Check if folder already exists in the given parent
+      String query = "name='$name' and mimeType='$mimeType' and trashed=false";
+      if (parentId != null) {
+        query += " and '$parentId' in parents";
+      } else {
+        query += " and 'root' in parents";
+      }
+      
       final fileList = await driveApi.files.list(q: query, spaces: 'drive');
       
       if (fileList.files != null && fileList.files!.isNotEmpty) {
@@ -63,70 +140,41 @@ class DriveService {
       }
       
       final newFolder = drive.File()
-        ..name = folderName
+        ..name = name
         ..mimeType = mimeType;
+        
+      if (parentId != null) {
+        newFolder.parents = [parentId];
+      }
         
       final createdFolder = await driveApi.files.create(newFolder);
       return createdFolder.id!;
     } catch (e) {
-      throw Exception('Failed to get or create Quire folder: $e');
+      throw Exception('Failed to create visible folder "$name": $e');
     }
   }
 
-  Future<List<NoteFileModel>> listFiles(String parentFolderId) async {
+  Future<drive.File> uploadVisibleFile(File localFile, String mimeType, String parentId) async {
     try {
       final driveApi = await _getDriveApi();
-      final query = "'$parentFolderId' in parents and trashed=false";
+      final length = await localFile.length();
+      final media = drive.Media(localFile.openRead(), length);
       
-      const fields = 'files(id, name, mimeType, size, modifiedTime, parents)';
+      final fileName = localFile.path.split(Platform.pathSeparator).last;
       
-      final fileList = await driveApi.files.list(
-        q: query,
-        orderBy: 'folder, name',
-        pageSize: 1000,
-        $fields: fields,
+      final driveFile = drive.File()
+        ..name = fileName
+        ..parents = [parentId]
+        ..mimeType = mimeType;
+        
+      final createdFile = await driveApi.files.create(
+        driveFile,
+        uploadMedia: media,
       );
       
-      final files = fileList.files ?? [];
-      return files.map((f) => NoteFileModel.fromGoogleDriveFile(f)).toList();
+      return createdFile;
     } catch (e) {
-      throw Exception('Failed to list files: $e');
-    }
-  }
-
-  Future<List<NoteFileModel>> getAllFilesRecursive(String rootFolderId) async {
-    try {
-      final result = <NoteFileModel>[];
-      await _fetchRecursively(rootFolderId, '', result);
-      return result;
-    } catch (e) {
-      throw Exception('Failed to fetch all files recursively: $e');
-    }
-  }
-
-  Future<void> _fetchRecursively(String folderId, String currentPath, List<NoteFileModel> result) async {
-    final driveApi = await _getDriveApi();
-    final query = "'$folderId' in parents and trashed=false";
-    const fields = 'files(id, name, mimeType, size, modifiedTime, parents)';
-    
-    final fileList = await driveApi.files.list(
-      q: query,
-      orderBy: 'folder, name',
-      pageSize: 1000,
-      $fields: fields,
-    );
-    
-    final items = fileList.files ?? [];
-    for (var item in items) {
-      final model = NoteFileModel.fromGoogleDriveFile(item);
-      final newPath = currentPath.isEmpty ? model.name : '$currentPath > ${model.name}';
-      model.filePath = newPath;
-      
-      result.add(model);
-      
-      if (model.isFolder) {
-        await _fetchRecursively(model.id, newPath, result);
-      }
+      throw Exception('Failed to upload file to visible drive: $e');
     }
   }
 

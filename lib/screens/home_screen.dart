@@ -2,21 +2,82 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../widgets/bottom_nav_bar.dart';
-import '../providers/drive_provider.dart';
+import '../providers/database_provider.dart';
 import '../providers/auth_provider.dart';
-import '../models/note_file_model.dart';
+import '../services/sharing_service.dart';
+import '../models/database_model.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Initialize the database (loads cache instantly, then syncs to cloud)
+      ref.read(databaseProvider.notifier).init();
+      
+      // Initialize OS share sheet listener
+      ref.read(sharingServiceProvider).init((files) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Received ${files.length} file(s). Saving to Inbox...'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        ref.read(databaseProvider.notifier).processSharedFiles(files);
+      });
+    });
+  }
+
+  void _showAddSemesterDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Semester'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'e.g. Semester 1'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.isNotEmpty) {
+                ref.read(databaseProvider.notifier).addSemester(controller.text);
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
 
     final authState = ref.watch(authProvider);
-    final driveState = ref.watch(driveFolderProvider);
+    final database = ref.watch(databaseProvider);
+    
+    final semesters = database.semesters.values.toList()
+      ..sort((a, b) => a.order.compareTo(b.order));
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -85,7 +146,7 @@ class HomeScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  'Your Notes',
+                  'Your Semesters',
                   style: textTheme.headlineMedium,
                 ),
                 InkWell(
@@ -106,50 +167,12 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: 24),
 
             // Dynamic Content Area
-            if (driveState.isLoading)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Column(
-                    children: [
-                      const CircularProgressIndicator(),
-                      const SizedBox(height: 16),
-                      Text("Loading your notes...", style: textTheme.bodyLarge),
-                    ],
-                  ),
-                ),
-              )
-            else if (driveState.error != null)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Column(
-                    children: [
-                      Icon(Icons.error_outline, size: 48, color: colorScheme.error),
-                      const SizedBox(height: 16),
-                      Text(
-                        driveState.error!,
-                        style: textTheme.bodyMedium?.copyWith(color: colorScheme.error),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          ref.read(driveFolderProvider.notifier).initialize();
-                        },
-                        icon: const Icon(Icons.refresh),
-                        label: const Text("Retry"),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else if (driveState.rootFiles.isEmpty)
+            if (semesters.isEmpty)
               Center(
                 child: Padding(
                   padding: const EdgeInsets.all(32.0),
                   child: Text(
-                    "No notes found. Create a folder to get started.",
+                    "No semesters found. Tap + to create one.",
                     style: textTheme.bodyLarge?.copyWith(color: colorScheme.outline),
                   ),
                 ),
@@ -164,53 +187,49 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: driveState.rootFiles.length,
+                itemCount: semesters.length,
                 itemBuilder: (context, index) {
-                  final file = driveState.rootFiles[index];
-                  return _buildFileCard(context: context, file: file);
+                  final semester = semesters[index];
+                  // Pass the semester ID to the folder route. 
+                  // We'll map the key from the map so we need to find it.
+                  final semesterId = database.semesters.entries
+                      .firstWhere((e) => e.value == semester)
+                      .key;
+                      
+                  return _buildSemesterCard(
+                    context: context, 
+                    semester: semester, 
+                    semesterId: semesterId
+                  );
                 },
               ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: _showAddSemesterDialog,
         backgroundColor: colorScheme.secondaryContainer,
         foregroundColor: colorScheme.onSecondaryContainer,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
-        child: const Icon(Icons.add, size: 28),
+        child: const Icon(Icons.create_new_folder, size: 28),
       ),
       bottomNavigationBar: const AppBottomNavBar(currentIndex: 0),
     );
   }
 
-  Widget _buildFileCard({
+  Widget _buildSemesterCard({
     required BuildContext context,
-    required NoteFileModel file,
+    required SemesterModel semester,
+    required String semesterId,
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     
-    final bool isFolder = file.isFolder;
-    final icon = isFolder ? Icons.folder : Icons.insert_drive_file;
-    final iconColor = isFolder ? colorScheme.primaryContainer : colorScheme.secondaryContainer;
-    
-    // Drive API doesn't return immediate child counts, so we use modified time or generic text for files
-    final subtitle = isFolder 
-        ? "Folder" 
-        : (file.modifiedTime != null ? '${file.modifiedTime!.year}-${file.modifiedTime!.month.toString().padLeft(2, '0')}-${file.modifiedTime!.day.toString().padLeft(2, '0')}' : "File");
-
     return InkWell(
       onTap: () {
-        if (isFolder) {
-          // Changed to pass folderId via query parameter, or standard path matching
-          context.push('/folder/${file.id}');
-        } else {
-          // If it's a file, presumably we'll have a pdf viewer route eventually
-          context.push('/pdf-viewer/${file.id}');
-        }
+        context.push('/folder/$semesterId');
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(
@@ -242,7 +261,7 @@ class HomeScreen extends ConsumerWidget {
                     color: colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(icon, color: iconColor),
+                  child: Icon(Icons.folder_special, color: colorScheme.primaryContainer),
                 ),
               ],
             ),
@@ -250,14 +269,14 @@ class HomeScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  file.name,
+                  semester.name,
                   style: theme.textTheme.headlineSmall?.copyWith(fontSize: 16),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  subtitle,
+                  "Semester Folder",
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.outline,
                     fontSize: 12,

@@ -5,7 +5,12 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: ['email', 'profile', 'https://www.googleapis.com/auth/drive.file'],
+    scopes: [
+      'email', 
+      'profile', 
+      'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/drive.appdata'
+    ],
   );
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
@@ -14,6 +19,11 @@ class AuthService {
 
   User? get currentUser => _auth.currentUser;
   Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  Future<GoogleSignInAccount?> signInSilently() async {
+    _currentGoogleAccount = await _googleSignIn.signInSilently();
+    return _currentGoogleAccount;
+  }
 
   Future<UserCredential?> signInWithGoogle() async {
     try {
