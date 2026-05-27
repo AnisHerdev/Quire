@@ -63,17 +63,11 @@ class _ExpandableFabState extends State<ExpandableFab>
       child: Stack(
         children: [
           _buildTapToCloseDimmer(),
+          ..._buildExpandingActionButtons(),
           Positioned(
             right: 16.0,
             bottom: 16.0,
-            child: Stack(
-              alignment: Alignment.bottomRight,
-              clipBehavior: Clip.none,
-              children: [
-                ..._buildExpandingActionButtons(),
-                _buildTapToOpenFab(),
-              ],
-            ),
+            child: _buildTapToOpenFab(),
           ),
         ],
       ),
@@ -171,8 +165,8 @@ class _ExpandingActionButton extends StatelessWidget {
           progress.value * maxDistance,
         );
         return Positioned(
-          right: 4.0,
-          bottom: 4.0 + offset.dy,
+          right: 20.0, // 16 (parent right) + 4
+          bottom: 20.0 + offset.dy, // 16 (parent bottom) + 4 + offset.dy
           child: Transform.rotate(
             angle: (1.0 - progress.value) * math.pi / 2,
             child: child!,

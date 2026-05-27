@@ -257,28 +257,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
 
                 // Section Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'Your Folders',
-                      style: textTheme.headlineMedium,
-                    ),
-                    InkWell(
-                      onTap: () {},
-                      child: Row(
-                        children: [
-                          Text(
-                            'View All',
-                            style: textTheme.labelLarge?.copyWith(color: colorScheme.primary),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(Icons.arrow_forward, size: 18, color: colorScheme.primary),
-                        ],
-                      ),
-                    ),
-                  ],
+                Text(
+                  'Your Folders',
+                  style: textTheme.headlineMedium,
                 ),
                 const SizedBox(height: 24),
 

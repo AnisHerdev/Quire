@@ -10,6 +10,7 @@ import '../models/database_model.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/expandable_fab.dart';
 import '../widgets/move_file_dialog.dart';
+import '../widgets/bottom_nav_bar.dart';
 
 class DirectoryScreen extends ConsumerStatefulWidget {
   final String folderId;
@@ -216,10 +217,43 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
       ),
       body: Stack(
         children: [
-          childFolders.isEmpty && childFiles.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32.0),
+          ListView(
+            padding: const EdgeInsets.all(24.0),
+            children: [
+              // Search Bar
+              Container(
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colorScheme.surfaceVariant),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colorScheme.primaryContainer.withOpacity(0.08),
+                      blurRadius: 20,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  onTap: () {
+                    context.push('/search');
+                  },
+                  readOnly: true,
+                  decoration: InputDecoration(
+                    hintText: 'Search your notes, texts, or authors...',
+                    hintStyle: theme.textTheme.bodyLarge?.copyWith(color: colorScheme.outlineVariant),
+                    prefixIcon: Icon(Icons.search, color: colorScheme.outline),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              if (childFolders.isEmpty && childFiles.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 64.0),
+                  child: Center(
                     child: Text(
                       "This folder is empty.\nTap + to add content.",
                       textAlign: TextAlign.center,
@@ -227,46 +261,45 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                     ),
                   ),
                 )
-              : ListView(
-                  padding: const EdgeInsets.all(24.0),
-                  children: [
-                    if (childFolders.isNotEmpty) ...[
-                      Text('Folders', style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
-                      const SizedBox(height: 12),
-                      GridView.builder(
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                          childAspectRatio: 1.0,
-                        ),
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: childFolders.length,
-                        itemBuilder: (context, index) {
-                          final child = childFolders[index];
-                          return _buildFolderCard(context, child);
-                        },
-                      ),
-                      const SizedBox(height: 32),
-                    ],
-                    
-                    if (childFiles.isNotEmpty) ...[
-                      Text('Files', style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
-                      const SizedBox(height: 12),
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: childFiles.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final fileEntry = childFiles[index];
-                          return _buildFileTile(context, fileEntry.key, fileEntry.value);
-                        },
-                      ),
-                    ],
-                  ],
-                ),
+              else ...[
+                if (childFolders.isNotEmpty) ...[
+                  Text('Folders', style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
+                  const SizedBox(height: 12),
+                  GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: 1.0,
+                    ),
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: childFolders.length,
+                    itemBuilder: (context, index) {
+                      final child = childFolders[index];
+                      return _buildFolderCard(context, child);
+                    },
+                  ),
+                  const SizedBox(height: 32),
+                ],
+                
+                if (childFiles.isNotEmpty) ...[
+                  Text('Files', style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
+                  const SizedBox(height: 12),
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: childFiles.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final fileEntry = childFiles[index];
+                      return _buildFileTile(context, fileEntry.key, fileEntry.value);
+                    },
+                  ),
+                ],
+              ],
+            ],
+          ),
           ExpandableFab(
             distance: 64.0,
             children: [
@@ -285,6 +318,7 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
           ),
         ],
       ),
+      bottomNavigationBar: const AppBottomNavBar(currentIndex: 0),
     );
   }
 

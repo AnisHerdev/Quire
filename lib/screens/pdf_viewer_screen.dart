@@ -1,4 +1,8 @@
+import 'dart:async';
 import 'dart:typed_data';
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +13,33 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../providers/database_provider.dart';
 import '../providers/drive_provider.dart';
+
+import '../providers/drive_provider.dart';
+
+class _GlideScrollPhysics extends BouncingScrollPhysics {
+  const _GlideScrollPhysics({super.parent});
+
+  @override
+  _GlideScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return _GlideScrollPhysics(parent: buildParent(ancestor));
+  }
+
+  @override
+  Simulation? createBallisticSimulation(ScrollMetrics position, double velocity) {
+    final tolerance = this.toleranceFor(position);
+    if (velocity.abs() >= tolerance.velocity || position.outOfRange) {
+      return BouncingScrollSimulation(
+        spring: spring,
+        position: position.pixels,
+        velocity: velocity * 3.0, // Boost velocity for even longer glide
+        leadingExtent: position.minScrollExtent,
+        trailingExtent: position.maxScrollExtent,
+        tolerance: tolerance,
+      );
+    }
+    return null;
+  }
+}
 
 class PdfViewerScreen extends ConsumerStatefulWidget {
   final String fileId;
@@ -31,6 +62,10 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
   bool _isDarkMode = false;
   double _currentZoom = 1.0;
 
+  bool _isFullscreen = false;
+  bool _showToolbar = true;
+  Timer? _toolbarHideTimer;
+
   @override
   void initState() {
     super.initState();
@@ -42,13 +77,49 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
       }
     });
     _loadPdf();
+    _startToolbarHideTimer();
   }
 
   @override
   void dispose() {
+    _toolbarHideTimer?.cancel();
+    if (_isFullscreen) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
     _pdfViewerController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _startToolbarHideTimer() {
+    _toolbarHideTimer?.cancel();
+    _toolbarHideTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted && !_isSearchMode) {
+        setState(() {
+          _showToolbar = false;
+        });
+      }
+    });
+  }
+
+  void _onPdfInteraction() {
+    if (!_showToolbar) {
+      setState(() {
+        _showToolbar = true;
+      });
+    }
+    _startToolbarHideTimer();
+  }
+
+  void _toggleFullscreen() {
+    setState(() {
+      _isFullscreen = !_isFullscreen;
+    });
+    if (_isFullscreen) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
+    } else {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
   }
 
   Future<void> _loadPdf() async {
@@ -160,12 +231,19 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
       0.0, 0.0, 0.0, 1.0, 0.0,
     ];
 
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: colorScheme.surface.withValues(alpha: 0.95),
-        elevation: 0,
-        leading: IconButton(
+    return PopScope(
+      canPop: !_isFullscreen,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _isFullscreen) {
+          _toggleFullscreen();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: colorScheme.surface,
+        appBar: _isFullscreen ? null : AppBar(
+          backgroundColor: colorScheme.surface.withValues(alpha: 0.95),
+          elevation: 0,
+          leading: IconButton(
           icon: Icon(Icons.close, color: colorScheme.onSurfaceVariant),
           onPressed: () => context.pop(),
         ),
@@ -179,6 +257,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
         centerTitle: true,
         actions: [
           IconButton(icon: Icon(Icons.ios_share, color: colorScheme.onSurfaceVariant), onPressed: _sharePdf),
+          IconButton(icon: Icon(Icons.fullscreen, color: colorScheme.onSurfaceVariant), onPressed: _toggleFullscreen),
           PopupMenuButton<String>(
             icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant),
             onSelected: (value) {
@@ -234,44 +313,87 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
               ),
             )
           else if (_pdfBytes != null)
-            ColorFiltered(
-              colorFilter: _isDarkMode
-                  ? const ColorFilter.matrix(colorMatrix)
-                  : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
-              child: SfPdfViewer.memory(
-                _pdfBytes!,
-                controller: _pdfViewerController,
-                canShowScrollHead: false,
-                canShowScrollStatus: false,
-                pageSpacing: 8,
-              ),
-            ),
-          
-          // Floating Bottom Toolbar
-          if (_pdfBytes != null)
-            Positioned(
-              bottom: 32,
-              left: 16,
-              right: 16,
-              child: Center(
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 400),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.95),
-                    borderRadius: BorderRadius.circular(30),
-                    boxShadow: [
-                      BoxShadow(color: colorScheme.primaryContainer.withValues(alpha: 0.12), blurRadius: 30, offset: const Offset(0, 8)),
-                    ],
-                    border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
+            Listener(
+              onPointerDown: (_) => _onPdfInteraction(),
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(context).copyWith(
+                  physics: const _GlideScrollPhysics(),
+                ),
+                child: ColorFiltered(
+                  colorFilter: _isDarkMode
+                      ? const ColorFilter.matrix(colorMatrix)
+                      : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
+                  child: SfPdfViewer.memory(
+                    _pdfBytes!,
+                    controller: _pdfViewerController,
+                    canShowScrollHead: false,
+                    canShowScrollStatus: false,
+                    pageSpacing: 8,
                   ),
-                  child: _isSearchMode ? _buildSearchBar(context) : _buildDefaultToolbar(context),
                 ),
               ),
             ),
+          
+          // Fullscreen floating back button
+          if (_isFullscreen)
+            Positioned(
+              top: 48,
+              left: 16,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: _showToolbar ? 1.0 : 0.0,
+                child: IgnorePointer(
+                  ignoring: !_showToolbar,
+                  child: IconButton.filled(
+                    icon: const Icon(Icons.close),
+                    onPressed: _toggleFullscreen,
+                    style: IconButton.styleFrom(
+                      backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
+                      foregroundColor: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // Floating Bottom Toolbar
+          if (_pdfBytes != null)
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+              bottom: _showToolbar || _isSearchMode ? 32 : -100,
+              left: 16,
+              right: 16,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: _showToolbar || _isSearchMode ? 1.0 : 0.0,
+                child: IgnorePointer(
+                  ignoring: !(_showToolbar || _isSearchMode),
+                  child: Center(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: _isFullscreen ? 8 : 16, 
+                        vertical: _isFullscreen ? 4 : 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.95),
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: [
+                          BoxShadow(color: colorScheme.primaryContainer.withValues(alpha: 0.12), blurRadius: 30, offset: const Offset(0, 8)),
+                        ],
+                        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                      ),
+                      child: _isSearchMode ? _buildSearchBar(context) : _buildDefaultToolbar(context),
+                    ),
+                  ),
+                ),
+          ),
+          ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildDefaultToolbar(BuildContext context) {
@@ -282,27 +404,29 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: EdgeInsets.symmetric(horizontal: _isFullscreen ? 4 : 8),
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
             children: [
-              IconButton(icon: const Icon(Icons.remove, size: 20), onPressed: _zoomOut, color: colorScheme.onSurfaceVariant),
+              IconButton(icon: Icon(Icons.remove, size: _isFullscreen ? 18 : 20), onPressed: _zoomOut, color: colorScheme.onSurfaceVariant, padding: _isFullscreen ? EdgeInsets.zero : const EdgeInsets.all(8), constraints: _isFullscreen ? const BoxConstraints() : null),
               const SizedBox(width: 8),
-              Text('${(_currentZoom * 100).toInt()}%', style: textTheme.labelLarge?.copyWith(color: colorScheme.onSurfaceVariant)),
+              Text('${(_currentZoom * 100).toInt()}%', style: textTheme.labelLarge?.copyWith(color: colorScheme.onSurfaceVariant, fontSize: _isFullscreen ? 12 : null)),
               const SizedBox(width: 8),
-              IconButton(icon: const Icon(Icons.add, size: 20), onPressed: _zoomIn, color: colorScheme.onSurfaceVariant),
+              IconButton(icon: Icon(Icons.add, size: _isFullscreen ? 18 : 20), onPressed: _zoomIn, color: colorScheme.onSurfaceVariant, padding: _isFullscreen ? EdgeInsets.zero : const EdgeInsets.all(8), constraints: _isFullscreen ? const BoxConstraints() : null),
             ],
           ),
         ),
-        const SizedBox(width: 16),
-        Container(width: 1, height: 24, color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
-        const SizedBox(width: 16),
+        SizedBox(width: _isFullscreen ? 8 : 16),
+        Container(width: 1, height: _isFullscreen ? 16 : 24, color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        SizedBox(width: _isFullscreen ? 8 : 16),
         IconButton(
-          icon: const Icon(Icons.search, size: 22), 
+          icon: Icon(Icons.search, size: _isFullscreen ? 20 : 22), 
           color: colorScheme.onSurfaceVariant,
+          padding: _isFullscreen ? EdgeInsets.zero : const EdgeInsets.all(8),
+          constraints: _isFullscreen ? const BoxConstraints() : null,
           onPressed: () {
             setState(() {
               _isSearchMode = true;
@@ -324,12 +448,13 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
             controller: _searchController,
             autofocus: true,
             textInputAction: TextInputAction.search,
+            style: textTheme.bodyMedium?.copyWith(fontSize: _isFullscreen ? 13 : null),
             decoration: InputDecoration(
               hintText: 'Search...',
-              hintStyle: textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
+              hintStyle: textTheme.bodyMedium?.copyWith(color: colorScheme.outline, fontSize: _isFullscreen ? 13 : null),
               border: InputBorder.none,
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+              contentPadding: EdgeInsets.symmetric(horizontal: _isFullscreen ? 4 : 8),
             ),
             onSubmitted: _performSearch,
             onChanged: (val) {
@@ -343,26 +468,32 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
         if (_searchResult.hasResult) ...[
           Text(
             '${_searchResult.currentInstanceIndex} of ${_searchResult.totalInstanceCount}',
-            style: textTheme.labelSmall?.copyWith(color: colorScheme.primary),
+            style: textTheme.labelSmall?.copyWith(color: colorScheme.primary, fontSize: _isFullscreen ? 11 : null),
           ),
           IconButton(
-            icon: const Icon(Icons.keyboard_arrow_up),
+            icon: Icon(Icons.keyboard_arrow_up, size: _isFullscreen ? 18 : 24),
+            padding: _isFullscreen ? EdgeInsets.zero : const EdgeInsets.all(8),
+            constraints: _isFullscreen ? const BoxConstraints() : null,
             onPressed: () {
               _searchResult.previousInstance();
               setState(() {});
             },
           ),
           IconButton(
-            icon: const Icon(Icons.keyboard_arrow_down),
+            icon: Icon(Icons.keyboard_arrow_down, size: _isFullscreen ? 18 : 24),
+            padding: _isFullscreen ? EdgeInsets.zero : const EdgeInsets.all(8),
+            constraints: _isFullscreen ? const BoxConstraints() : null,
             onPressed: () {
               _searchResult.nextInstance();
               setState(() {});
             },
           ),
         ],
-        Container(width: 1, height: 24, color: colorScheme.outlineVariant.withValues(alpha: 0.5), margin: const EdgeInsets.symmetric(horizontal: 4)),
+        Container(width: 1, height: _isFullscreen ? 16 : 24, color: colorScheme.outlineVariant.withValues(alpha: 0.5), margin: const EdgeInsets.symmetric(horizontal: 4)),
         IconButton(
-          icon: const Icon(Icons.close),
+          icon: Icon(Icons.close, size: _isFullscreen ? 18 : 24),
+          padding: _isFullscreen ? EdgeInsets.zero : const EdgeInsets.all(8),
+          constraints: _isFullscreen ? const BoxConstraints() : null,
           onPressed: () {
             _searchResult.removeListener(_onSearchChanged);
             _searchResult.clear();
