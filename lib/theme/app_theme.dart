@@ -40,4 +40,47 @@ class AppTheme {
       ),
     );
   }
+
+  static ThemeData get darkTheme {
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: const ColorScheme(
+        brightness: Brightness.dark,
+        primary: AppColors.primaryContainer,
+        onPrimary: AppColors.onPrimaryContainer,
+        primaryContainer: AppColors.primary,
+        onPrimaryContainer: AppColors.onPrimary,
+        secondary: AppColors.secondaryContainer,
+        onSecondary: AppColors.onSecondaryContainer,
+        secondaryContainer: AppColors.secondary,
+        onSecondaryContainer: AppColors.onSecondary,
+        error: AppColors.errorContainer,
+        onError: AppColors.onErrorContainer,
+        errorContainer: AppColors.error,
+        onErrorContainer: AppColors.onError,
+        background: Color(0xFF1B1C19),
+        onBackground: Color(0xFFFAF9F4),
+        surface: Color(0xFF1B1C19),
+        onSurface: Color(0xFFFAF9F4),
+        surfaceVariant: Color(0xFF414844),
+        onSurfaceVariant: Color(0xFFE3E3DE),
+        outline: AppColors.outlineVariant,
+        outlineVariant: AppColors.outline,
+      ),
+      scaffoldBackgroundColor: const Color(0xFF1B1C19),
+      textTheme: AppTypography.textTheme.apply(
+        bodyColor: const Color(0xFFFAF9F4),
+        displayColor: const Color(0xFFFAF9F4),
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: const Color(0xFF1B1C19),
+        foregroundColor: const Color(0xFFFAF9F4),
+        elevation: 0,
+        centerTitle: true,
+        titleTextStyle: AppTypography.textTheme.headlineMedium?.copyWith(
+          color: const Color(0xFFFAF9F4),
+        ),
+      ),
+    );
+  }
 }
