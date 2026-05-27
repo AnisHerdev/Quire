@@ -334,7 +334,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
               ),
             ),
           
-          // Fullscreen floating back button
+          // Fullscreen floating exit button
           if (_isFullscreen)
             Positioned(
               top: 48,
@@ -345,7 +345,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
                 child: IgnorePointer(
                   ignoring: !_showToolbar,
                   child: IconButton.filled(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(Icons.fullscreen_exit),
                     onPressed: _toggleFullscreen,
                     style: IconButton.styleFrom(
                       backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
@@ -357,7 +357,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
             ),
 
           // Floating Bottom Toolbar
-          if (_pdfBytes != null)
+          if (_pdfBytes != null && !_isFullscreen)
             AnimatedPositioned(
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeOut,

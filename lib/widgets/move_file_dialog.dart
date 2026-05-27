@@ -33,14 +33,12 @@ class _MoveFileDialogState extends ConsumerState<MoveFileDialog> {
           contentPadding: EdgeInsets.only(left: 24.0 + (depth * 24.0), right: 24),
           leading: Icon(Icons.folder, color: colorScheme.primary),
           title: Text(child.value.name, style: textTheme.bodyMedium),
-          onTap: () async {
-            final undoFunc = await ref.read(databaseProvider.notifier).moveFiles(
+          onTap: () {
+            final undoFunc = ref.read(databaseProvider.notifier).moveFiles(
               widget.fileIds,
               child.key,
             );
-            if (context.mounted) {
-              Navigator.pop(context, undoFunc);
-            }
+            Navigator.pop(context, undoFunc);
           },
         ),
       );
@@ -89,14 +87,12 @@ class _MoveFileDialogState extends ConsumerState<MoveFileDialog> {
             contentPadding: const EdgeInsets.symmetric(horizontal: 24),
             leading: Icon(Icons.inbox, color: colorScheme.secondary),
             title: Text('Inbox (Uncategorized)', style: textTheme.bodyMedium),
-            onTap: () async {
-              final undoFunc = await ref.read(databaseProvider.notifier).moveFiles(
+            onTap: () {
+              final undoFunc = ref.read(databaseProvider.notifier).moveFiles(
                 widget.fileIds,
                 null,
               );
-              if (context.mounted) {
-                Navigator.pop(context, undoFunc);
-              }
+              Navigator.pop(context, undoFunc);
             },
           ),
           const Divider(),

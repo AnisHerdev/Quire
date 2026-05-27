@@ -180,6 +180,143 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
     );
   }
 
+  Set<String> _selectedFiles = {};
+
+  void _toggleSelection(String fileId) {
+    setState(() {
+      if (_selectedFiles.contains(fileId)) {
+        _selectedFiles.remove(fileId);
+      } else {
+        _selectedFiles.add(fileId);
+      }
+    });
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedFiles.clear();
+    });
+  }
+
+  void _showDeleteMultipleDialog(List<String> fileIds) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Files'),
+        content: const Text('Are you sure you want to delete these files? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              ref.read(databaseProvider.notifier).deleteFiles(fileIds);
+              _clearSelection();
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFolderOptions(BuildContext context, String folderId, FolderModel folder) {
+    final colorScheme = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.edit, color: colorScheme.primary),
+              title: Text('Rename Folder', style: TextStyle(color: colorScheme.primary)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showRenameFolderDialog(folderId, folder);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete, color: colorScheme.error),
+              title: Text('Delete Folder', style: TextStyle(color: colorScheme.error)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showDeleteChildFolderDialog(folderId, folder);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showRenameFolderDialog(String folderId, FolderModel folder) {
+    final controller = TextEditingController(text: folder.name);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename Folder'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Folder Name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                ref.read(databaseProvider.notifier).renameFolder(folderId, newName);
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteChildFolderDialog(String folderId, FolderModel folder) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Folder'),
+        content: const Text('What would you like to do with the files inside this folder?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              ref.read(databaseProvider.notifier).deleteFolder(folderId, keepFiles: true);
+              Navigator.pop(context);
+            },
+            child: const Text('Keep Files (Move to Inbox)'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () {
+              ref.read(databaseProvider.notifier).deleteFolder(folderId, keepFiles: false);
+              Navigator.pop(context);
+            },
+            child: const Text('Delete Folder & Files'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -206,15 +343,68 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        title: Text(folder.name),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.delete_outline, color: colorScheme.error),
-            onPressed: () => _showDeleteFolderDialog(folder),
-          ),
-        ],
-      ),
+      appBar: _selectedFiles.isNotEmpty
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _clearSelection,
+              ),
+              title: Text('${_selectedFiles.length} selected'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.drive_file_move),
+                  onPressed: () {
+                    final selectedList = _selectedFiles.toList();
+                    _clearSelection();
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (context) => MoveFileDialog(fileIds: selectedList),
+                    ).then((undoFunc) {
+                      if (undoFunc != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Files moved successfully'),
+                            action: SnackBarAction(
+                              label: 'Undo',
+                              onPressed: undoFunc as void Function(),
+                            ),
+                          ),
+                        );
+                      }
+                    });
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete),
+                  onPressed: () {
+                    final selectedList = _selectedFiles.toList();
+                    _showDeleteMultipleDialog(selectedList);
+                  },
+                ),
+              ],
+            )
+          : AppBar(
+              backgroundColor: colorScheme.surface,
+              elevation: 0,
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back, color: colorScheme.onSurfaceVariant),
+                onPressed: () => context.pop(),
+              ),
+              title: Text(
+                folder.name,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              actions: [
+                IconButton(
+                  icon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
+                  onPressed: () => context.push('/search'),
+                ),
+              ],
+            ),
       body: Stack(
         children: [
           ListView(
@@ -342,14 +532,26 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainer,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(Icons.folder, color: colorScheme.primary),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.folder, color: colorScheme.primary),
+                ),
+                IconButton(
+                  icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () => _showFolderOptions(context, childFolder.id, childFolder),
+                ),
+              ],
             ),
             Text(
               childFolder.name,
@@ -367,17 +569,24 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     
+    final isSelected = _selectedFiles.contains(fileId);
+
     return InkWell(
+      onLongPress: () => _toggleSelection(fileId),
       onTap: () {
-        context.push('/pdf-viewer/$fileId');
+        if (_selectedFiles.isNotEmpty) {
+          _toggleSelection(fileId);
+        } else {
+          context.push('/pdf-viewer/$fileId');
+        }
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerLowest,
+          color: isSelected ? colorScheme.primaryContainer.withOpacity(0.3) : colorScheme.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: colorScheme.surfaceVariant),
+          border: Border.all(color: isSelected ? colorScheme.primary : colorScheme.surfaceVariant),
         ),
         child: Row(
           children: [
@@ -385,10 +594,10 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: colorScheme.secondaryContainer.withValues(alpha: 0.3),
+                color: isSelected ? colorScheme.primary : colorScheme.secondaryContainer.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(Icons.picture_as_pdf, color: colorScheme.secondary),
+              child: Icon(isSelected ? Icons.check : Icons.picture_as_pdf, color: isSelected ? colorScheme.onPrimary : colorScheme.secondary),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -419,53 +628,54 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                 ],
               ),
             ),
-            IconButton(
-              icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant),
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  builder: (ctx) => SafeArea(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ListTile(
-                          leading: Icon(Icons.drive_file_move, color: colorScheme.primary),
-                          title: Text('Move File', style: TextStyle(color: colorScheme.primary)),
-                          onTap: () {
-                            Navigator.pop(ctx);
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              builder: (context) => MoveFileDialog(fileIds: [fileId]),
-                            ).then((undoFunc) {
-                              if (undoFunc != null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: const Text('File moved successfully'),
-                                    action: SnackBarAction(
-                                      label: 'Undo',
-                                      onPressed: undoFunc as void Function(),
+            if (_selectedFiles.isEmpty)
+              IconButton(
+                icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant),
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    builder: (ctx) => SafeArea(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListTile(
+                            leading: Icon(Icons.drive_file_move, color: colorScheme.primary),
+                            title: Text('Move File', style: TextStyle(color: colorScheme.primary)),
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                builder: (context) => MoveFileDialog(fileIds: [fileId]),
+                              ).then((undoFunc) {
+                                if (undoFunc != null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Text('File moved successfully'),
+                                      action: SnackBarAction(
+                                        label: 'Undo',
+                                        onPressed: undoFunc as void Function(),
+                                      ),
                                     ),
-                                  ),
-                                );
-                              }
-                            });
-                          },
-                        ),
-                        ListTile(
-                          leading: Icon(Icons.delete, color: colorScheme.error),
-                          title: Text('Delete File', style: TextStyle(color: colorScheme.error)),
-                          onTap: () {
-                            Navigator.pop(ctx);
-                            _showDeleteFileDialog(fileId, file);
-                          },
-                        ),
-                      ],
+                                  );
+                                }
+                              });
+                            },
+                          ),
+                          ListTile(
+                            leading: Icon(Icons.delete, color: colorScheme.error),
+                            title: Text('Delete File', style: TextStyle(color: colorScheme.error)),
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              _showDeleteFileDialog(fileId, file);
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
+                  );
+                },
+              ),
           ],
         ),
       ),

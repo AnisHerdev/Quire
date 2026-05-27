@@ -83,7 +83,8 @@ class AppBottomNavBar extends StatelessWidget {
 
     return InkWell(
       onTap: () {
-        if (!isSelected) {
+        final currentUri = GoRouterState.of(context).uri.toString();
+        if (!isSelected || currentUri != route) {
           context.go(route);
         }
       },

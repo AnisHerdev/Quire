@@ -23,6 +23,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       // Initialize the database (loads cache instantly, then syncs to cloud)
       ref.read(databaseProvider.notifier).init();
       
@@ -168,6 +169,98 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     } catch (e) {
       debugPrint('Error picking files: $e');
     }
+  }
+
+  void _showFolderOptions(BuildContext context, String folderId, FolderModel folder) {
+    final colorScheme = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.edit, color: colorScheme.primary),
+              title: Text('Rename Folder', style: TextStyle(color: colorScheme.primary)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showRenameFolderDialog(folderId, folder);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete, color: colorScheme.error),
+              title: Text('Delete Folder', style: TextStyle(color: colorScheme.error)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showDeleteFolderDialog(folderId, folder);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showRenameFolderDialog(String folderId, FolderModel folder) {
+    final controller = TextEditingController(text: folder.name);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename Folder'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Folder Name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                ref.read(databaseProvider.notifier).renameFolder(folderId, newName);
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteFolderDialog(String folderId, FolderModel folder) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Folder'),
+        content: const Text('What would you like to do with the files inside this folder?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              ref.read(databaseProvider.notifier).deleteFolder(folderId, keepFiles: true);
+              Navigator.pop(context);
+            },
+            child: const Text('Keep Files (Move to Inbox)'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () {
+              ref.read(databaseProvider.notifier).deleteFolder(folderId, keepFiles: false);
+              Navigator.pop(context);
+            },
+            child: const Text('Delete Folder & Files'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -363,6 +456,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(Icons.folder_special, color: colorScheme.primary),
+                ),
+                IconButton(
+                  icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () => _showFolderOptions(context, folder.id, folder),
                 ),
               ],
             ),

@@ -62,7 +62,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     await ref.read(syncServiceProvider).saveAndSync(state);
   }
 
-  Future<void> deleteFolder(String folderId) async {
+  Future<void> deleteFolder(String folderId, {bool keepFiles = false}) async {
     // 1. Find all child folders recursively
     final foldersToDelete = <String>{folderId};
     bool added;
@@ -77,14 +77,25 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     } while (added);
 
     // 2. Find all files in these folders
-    final filesToDelete = state.files.values
-        .where((f) => f.folderId != null && foldersToDelete.contains(f.folderId))
-        .map((f) => state.files.entries.firstWhere((e) => e.value == f).key)
+    final fileEntries = state.files.entries
+        .where((e) => e.value.folderId != null && foldersToDelete.contains(e.value.folderId))
         .toList();
 
-    // 3. Delete files (which handles drive and local cache deletion)
-    if (filesToDelete.isNotEmpty) {
-      await deleteFiles(filesToDelete);
+    // 3. Delete files or move to Inbox
+    if (keepFiles) {
+      final updatedFiles = Map<String, QuireFileModel>.from(state.files);
+      for (final entry in fileEntries) {
+        updatedFiles[entry.key] = entry.value.copyWith(
+          folderId: null,
+          clearFolderId: true,
+        );
+      }
+      state = state.copyWith(files: updatedFiles);
+    } else {
+      final filesToDelete = fileEntries.map((e) => e.key).toList();
+      if (filesToDelete.isNotEmpty) {
+        await deleteFiles(filesToDelete);
+      }
     }
 
     // 4. Delete the folders from state
@@ -281,7 +292,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     }
   }
 
-  Future<Future<void> Function()> moveFiles(List<String> fileIds, String? newFolderId) async {
+  Future<void> Function() moveFiles(List<String> fileIds, String? newFolderId) {
     final originalStates = <String, QuireFileModel>{};
     final updatedFiles = Map<String, QuireFileModel>.from(state.files);
     
@@ -296,7 +307,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     }
     
     state = state.copyWith(files: updatedFiles);
-    await ref.read(syncServiceProvider).saveAndSync(state);
+    ref.read(syncServiceProvider).saveAndSync(state);
 
     // Return an undo function
     return () async {
@@ -310,6 +321,19 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
       await ref.read(syncServiceProvider).saveAndSync(state);
     };
   }
+
+  Future<void> renameFolder(String folderId, String newName) async {
+    if (!state.folders.containsKey(folderId)) return;
+    
+    final updatedFolders = Map<String, FolderModel>.from(state.folders);
+    updatedFolders[folderId] = updatedFolders[folderId]!.copyWith(name: newName);
+    
+    state = state.copyWith(folders: updatedFolders);
+    await ref.read(syncServiceProvider).saveAndSync(state);
+  }
+
+
+
 
   Future<void> deleteFiles(List<String> fileIds) async {
     final driveService = ref.read(driveServiceProvider);
