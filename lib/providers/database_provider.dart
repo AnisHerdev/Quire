@@ -4,6 +4,8 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../models/database_model.dart';
+import '../services/sync_service.dart';
+import 'auth_provider.dart';
 import 'drive_provider.dart';
 
 final databaseProvider = NotifierProvider<DatabaseNotifier, QuireDatabase>(DatabaseNotifier.new);

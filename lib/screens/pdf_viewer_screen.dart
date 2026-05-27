@@ -88,8 +88,20 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
       final localFile = File('${cacheDir.path}/${widget.fileId}.pdf');
       
       if (await localFile.exists()) {
+        // Copy to temp directory with the actual custom name so OS shares it properly
+        final tempDir = await getTemporaryDirectory();
+        
+        // Sanitize filename to avoid path issues
+        var safeFileName = fileName.replaceAll(RegExp(r'[\\/]'), '_');
+        if (!safeFileName.toLowerCase().endsWith('.pdf')) {
+          safeFileName = '$safeFileName.pdf';
+        }
+        
+        final tempFile = File('${tempDir.path}/$safeFileName');
+        await localFile.copy(tempFile.path);
+
         // ignore: deprecated_member_use
-        await Share.shareXFiles([XFile(localFile.path)], subject: fileName);
+        await Share.shareXFiles([XFile(tempFile.path)], subject: safeFileName);
       }
     } catch (e) {
       if (mounted) {
