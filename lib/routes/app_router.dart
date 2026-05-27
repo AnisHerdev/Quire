@@ -1,5 +1,5 @@
 import 'package:go_router/go_router.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../screens/splash_screen.dart';
 import '../screens/login_screen.dart';
@@ -10,10 +10,32 @@ import '../screens/search_results_screen.dart';
 import '../screens/pdf_viewer_screen.dart';
 import '../screens/offline_files_screen.dart';
 import '../screens/profile_screen.dart';
+import '../providers/auth_provider.dart';
 
-class AppRouter {
-  static final router = GoRouter(
+final routerProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authProvider);
+
+  return GoRouter(
     initialLocation: '/',
+    redirect: (context, state) {
+      // Don't redirect while auth is loading initially
+      if (authState.isLoading) return null;
+
+      final isAuth = authState.isAuthenticated;
+      final isSplash = state.matchedLocation == '/';
+      final isLogin = state.matchedLocation == '/login';
+      final isGoingToAuthOrSplash = isSplash || isLogin;
+
+      if (!isAuth && !isGoingToAuthOrSplash) {
+        return '/login';
+      }
+      
+      if (isAuth && isGoingToAuthOrSplash) {
+        return '/home';
+      }
+
+      return null;
+    },
     routes: [
       GoRoute(
         path: '/',
@@ -56,4 +78,4 @@ class AppRouter {
       ),
     ],
   );
-}
+});

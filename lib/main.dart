@@ -1,9 +1,13 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'routes/app_router.dart';
 import 'theme/app_theme.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  
   runApp(
     const ProviderScope(
       child: QuireApp(),
@@ -11,16 +15,17 @@ void main() {
   );
 }
 
-class QuireApp extends StatelessWidget {
+class QuireApp extends ConsumerWidget {
   const QuireApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(routerProvider);
+    
     return MaterialApp.router(
       title: 'Quire',
-      theme: AppTheme.lightTheme, // Assuming we default to light theme per designs
-      // darkTheme: AppTheme.darkTheme,
-      routerConfig: AppRouter.router,
+      theme: AppTheme.lightTheme,
+      routerConfig: router,
       debugShowCheckedModeBanner: false,
     );
   }

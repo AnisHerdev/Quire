@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import '../widgets/bottom_nav_bar.dart';
 
 class SearchResultsScreen extends StatelessWidget {

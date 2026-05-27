@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/auth_provider.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
@@ -24,10 +26,17 @@ class _SplashScreenState extends State<SplashScreen>
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
 
-    // Navigate to login after a delay
-    Future.delayed(const Duration(seconds: 3), () {
+    // Check auth state and navigate after a minimum 1.5s delay
+    Future.delayed(const Duration(milliseconds: 1500), () {
       if (mounted) {
-        context.go('/login');
+        final authState = ref.read(authProvider);
+        if (!authState.isLoading) {
+          if (authState.isAuthenticated) {
+            context.go('/home');
+          } else {
+            context.go('/login');
+          }
+        }
       }
     });
   }

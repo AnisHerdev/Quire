@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/auth_provider.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends ConsumerWidget {
   const LoginScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
@@ -89,11 +91,27 @@ class LoginScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 40),
                     ElevatedButton(
-                      onPressed: () {
-                        context.go('/onboarding');
-                      },
+                      onPressed: ref.watch(authProvider).isLoading
+                          ? null
+                          : () async {
+                              try {
+                                await ref.read(authProvider.notifier).signInWithGoogle();
+                                if (context.mounted) {
+                                  final authState = ref.read(authProvider);
+                                  if (authState.isAuthenticated) {
+                                    context.go('/onboarding');
+                                  }
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Login failed: $e')),
+                                  );
+                                }
+                              }
+                            },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: colorScheme.surface, // Close to lowest
+                        backgroundColor: colorScheme.surface,
                         foregroundColor: colorScheme.onSurface,
                         elevation: 1,
                         padding: const EdgeInsets.symmetric(
@@ -107,17 +125,23 @@ class LoginScreen extends StatelessWidget {
                           ),
                         ),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.g_mobiledata, size: 28), // Placeholder for Google icon
-                          const SizedBox(width: 12),
-                          Text(
-                            'Continue with Google',
-                            style: textTheme.labelLarge,
-                          ),
-                        ],
-                      ),
+                      child: ref.watch(authProvider).isLoading
+                          ? SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.primary),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.g_mobiledata, size: 28),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Continue with Google',
+                                  style: textTheme.labelLarge,
+                                ),
+                              ],
+                            ),
                     ),
                     const SizedBox(height: 48),
                     Row(
