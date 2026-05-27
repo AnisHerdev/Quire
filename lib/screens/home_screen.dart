@@ -177,6 +177,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colorScheme.surfaceVariant),
                 boxShadow: [
                   BoxShadow(
                     color: colorScheme.primaryContainer.withOpacity(0.08),
