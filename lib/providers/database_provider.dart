@@ -77,7 +77,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     return false;
   }
 
-  Future<void> processSharedFiles(List<SharedMediaFile> files) async {
+  Future<void> processSharedFiles(List<SharedMediaFile> files, {List<String>? customNames}) async {
     final isAuthenticated = await _ensureDriveAuthenticated();
     if (!isAuthenticated) {
       throw StateError('User is not authenticated with Google.');
@@ -100,9 +100,21 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
         final driveFile = await driveService.uploadVisibleFile(file, mimeType, rootId);
         
         if (driveFile.id != null) {
+          // Use custom name if provided, otherwise fallback to driveFile name
+          final index = files.indexOf(sharedFile);
+          final finalName = (customNames != null && customNames.length > index && customNames[index].isNotEmpty) 
+              ? customNames[index] 
+              : (driveFile.name ?? 'Unknown File');
+
+          // Rename in drive if custom name is different from what was uploaded
+          if (customNames != null && finalName != driveFile.name) {
+             // We could rename it in drive here, but it's okay if Drive file has original name and our DB has custom name for now, 
+             // or we should rename it in drive. Let's rely on Quire's DB for the display name.
+          }
+
           // 3. Add to Uncategorized/Inbox (semesterId and subjectId are empty)
           final newFile = QuireFileModel(
-            name: driveFile.name ?? 'Unknown File',
+            name: finalName,
             mimeType: driveFile.mimeType ?? mimeType,
             semesterId: '', // Uncategorized
             subjectId: '',  // Uncategorized

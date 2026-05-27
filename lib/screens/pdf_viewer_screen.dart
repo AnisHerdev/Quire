@@ -84,6 +84,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
       final localFile = File('${cacheDir.path}/${widget.fileId}.pdf');
       
       if (await localFile.exists()) {
+        // ignore: deprecated_member_use
         await Share.shareXFiles([XFile(localFile.path)], subject: fileName);
       }
     } catch (e) {

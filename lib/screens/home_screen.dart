@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -24,17 +25,62 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       
       // Initialize OS share sheet listener
       ref.read(sharingServiceProvider).init((files) async {
+        if (!mounted || files.isEmpty) return;
+
+        // Extract a clean default name
+        String initialName = files.first.path.split(Platform.pathSeparator).last;
+        if (initialName.contains('share_') || initialName.contains(RegExp(r'[0-9]{10}'))) {
+          initialName = 'Document.pdf';
+        }
+
+        final customName = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) {
+            final controller = TextEditingController(text: initialName);
+            return AlertDialog(
+              title: const Text('Save to Quire'),
+              content: TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Document Name',
+                  hintText: 'e.g., Biology Chapter 4',
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, null),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    var name = controller.text.trim();
+                    if (name.isEmpty) name = 'Untitled Document';
+                    if (!name.toLowerCase().endsWith('.pdf')) name += '.pdf';
+                    Navigator.pop(context, name);
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (customName == null) return; // User cancelled
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Received ${files.length} file(s). Saving to Inbox...'),
+              content: Text('Saving "$customName" to Inbox...'),
               behavior: SnackBarBehavior.floating,
             ),
           );
         }
         
         try {
-          await ref.read(databaseProvider.notifier).processSharedFiles(files);
+          final namesList = List.filled(files.length, customName);
+          await ref.read(databaseProvider.notifier).processSharedFiles(files, customNames: namesList);
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
