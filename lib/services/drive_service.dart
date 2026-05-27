@@ -236,4 +236,23 @@ class DriveService {
       throw Exception('Failed to load PDF: $e');
     }
   }
+
+  Future<List<String>> searchFilesContent(String query) async {
+    try {
+      final driveApi = await _getDriveApi();
+      final safeQuery = query.replaceAll("'", "\\'");
+      final q = "fullText contains '$safeQuery' and trashed=false";
+      
+      final fileList = await driveApi.files.list(q: q, spaces: 'drive');
+      
+      if (fileList.files == null || fileList.files!.isEmpty) {
+        return [];
+      }
+      
+      return fileList.files!.map((f) => f.id!).toList();
+    } catch (e) {
+      print('Deep search failed: $e');
+      return [];
+    }
+  }
 }

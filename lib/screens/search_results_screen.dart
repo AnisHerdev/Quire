@@ -1,14 +1,59 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:timeago/timeago.dart' as timeago;
 import '../widgets/bottom_nav_bar.dart';
+import '../providers/search_provider.dart';
+import '../providers/database_provider.dart';
+import '../models/database_model.dart';
 
-class SearchResultsScreen extends StatelessWidget {
+class SearchResultsScreen extends ConsumerStatefulWidget {
   const SearchResultsScreen({super.key});
+
+  @override
+  ConsumerState<SearchResultsScreen> createState() => _SearchResultsScreenState();
+}
+
+class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-populate if query exists from another screen
+    _controller.text = ref.read(searchProvider).query;
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
+
+    final searchState = ref.watch(searchProvider);
+    final database = ref.watch(databaseProvider);
+
+    // Filter logic
+    final query = searchState.query.toLowerCase();
+    final List<MapEntry<String, QuireFileModel>> results = [];
+    
+    if (query.isNotEmpty) {
+      for (final entry in database.files.entries) {
+        final file = entry.value;
+        final matchesTitle = file.name.toLowerCase().contains(query);
+        final matchesCloud = file.driveId != null && searchState.cloudMatchDriveIds.contains(file.driveId);
+        
+        if (matchesTitle || matchesCloud) {
+          results.add(entry);
+        }
+      }
+    }
 
     return Scaffold(
       backgroundColor: colorScheme.background,
@@ -27,11 +72,23 @@ class SearchResultsScreen extends StatelessWidget {
                   const SizedBox(height: 24),
                   // Search Bar
                   TextField(
+                    controller: _controller,
                     autofocus: true,
+                    onChanged: (val) {
+                      ref.read(searchProvider.notifier).setQuery(val);
+                    },
                     decoration: InputDecoration(
-                      hintText: 'Binary trees',
+                      hintText: 'Binary trees, Physics...',
                       prefixIcon: Icon(Icons.search, color: colorScheme.outlineVariant),
-                      suffixIcon: Icon(Icons.close, color: colorScheme.outline),
+                      suffixIcon: query.isNotEmpty 
+                          ? IconButton(
+                              icon: Icon(Icons.close, color: colorScheme.outline),
+                              onPressed: () {
+                                _controller.clear();
+                                ref.read(searchProvider.notifier).clear();
+                              },
+                            )
+                          : null,
                       filled: true,
                       fillColor: colorScheme.surface,
                       border: OutlineInputBorder(
@@ -44,103 +101,101 @@ class SearchResultsScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  // Filter Chips
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        Chip(
-                          label: Text('All', style: textTheme.labelLarge?.copyWith(color: colorScheme.onSecondary)),
-                          backgroundColor: colorScheme.secondary,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        ),
-                        const SizedBox(width: 12),
-                        _buildFilterChip(context, 'PDF', colorScheme.error),
-                        const SizedBox(width: 12),
-                        _buildFilterChip(context, 'PPT', colorScheme.secondaryContainer),
-                        const SizedBox(width: 12),
-                        _buildFilterChip(context, 'DOCX', colorScheme.primaryContainer),
-                        const SizedBox(width: 12),
-                        _buildFilterChip(context, 'TXT', colorScheme.outline),
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),
             
+            // Loading Indicator for Cloud Search
+            if (searchState.isSearchingCloud)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.secondary)),
+                    const SizedBox(width: 12),
+                    Text('Deep searching contents...', style: textTheme.bodySmall?.copyWith(color: colorScheme.secondary)),
+                  ],
+                ),
+              ),
+
             // Search Results List
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                children: [
-                  Text('3 RESULTS FOUND', style: textTheme.labelLarge?.copyWith(color: colorScheme.outline)),
-                  const SizedBox(height: 16),
-                  _buildResultCard(
-                    context: context,
-                    title: 'IA1 - Binary Trees.pdf',
-                    icon: Icons.picture_as_pdf,
-                    iconColor: colorScheme.error,
-                    iconBgColor: colorScheme.errorContainer.withOpacity(0.3),
-                    matchType: 'High Match',
-                    matchColor: colorScheme.secondaryContainer,
-                    folder: 'Semester 1',
-                    date: 'Updated 2 days ago',
-                    snippet: '...understanding data structures is crucial. When analyzing the computational complexity, traversing a binary tree involves visiting each node exactly once...',
-                  ),
-                  const SizedBox(height: 16),
-                  _buildResultCard(
-                    context: context,
-                    title: 'Lecture 4 Notes: Trees & Graphs',
-                    icon: Icons.description,
-                    iconColor: colorScheme.outline,
-                    iconBgColor: colorScheme.surfaceContainer,
-                    matchType: 'Partial',
-                    matchColor: colorScheme.surfaceContainerHigh,
-                    folder: 'Data Structures 101',
-                    date: 'Updated last week',
-                    snippet: '...unlike arrays, binary trees provide a hierarchical structure. A balanced binary tree ensures that the depth is kept to a minimum...',
-                  ),
-                  const SizedBox(height: 16),
-                  _buildResultCard(
-                    context: context,
-                    title: 'Concept: AVL Trees',
-                    icon: Icons.format_quote,
-                    iconColor: colorScheme.primary,
-                    iconBgColor: colorScheme.primaryContainer.withOpacity(0.2),
-                    matchType: 'Mention',
-                    matchColor: colorScheme.surfaceContainerHigh,
-                    folder: 'Study Guides',
-                    date: 'Updated 1 month ago',
-                    snippet: '...An AVL tree is a self-balancing binary search tree. It was the first such data structure to be invented...',
-                  ),
-                ],
-              ),
+              child: query.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.manage_search, size: 64, color: colorScheme.surfaceVariant),
+                          const SizedBox(height: 16),
+                          Text('Type to search titles and contents', style: textTheme.titleMedium?.copyWith(color: colorScheme.outline)),
+                        ],
+                      ),
+                    )
+                  : results.isEmpty && !searchState.isSearchingCloud
+                      ? Center(
+                          child: Text('No matches found for "$query"', style: textTheme.bodyLarge?.copyWith(color: colorScheme.outline)),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                          itemCount: results.length,
+                          separatorBuilder: (context, index) => const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final entry = results[index];
+                            final localId = entry.key;
+                            final file = entry.value;
+
+                            final isCloudMatch = file.driveId != null && searchState.cloudMatchDriveIds.contains(file.driveId);
+                            final matchesTitle = file.name.toLowerCase().contains(query);
+
+                            // Determine Match Type
+                            String matchType = 'Title Match';
+                            Color matchColor = colorScheme.primaryContainer;
+                            if (isCloudMatch && !matchesTitle) {
+                              matchType = 'Content Deep Match';
+                              matchColor = colorScheme.secondaryContainer;
+                            } else if (isCloudMatch && matchesTitle) {
+                              matchType = 'Title & Content';
+                              matchColor = colorScheme.tertiaryContainer;
+                            }
+
+                            // Determine Icon
+                            IconData iconData = Icons.insert_drive_file;
+                            Color iconColor = colorScheme.outline;
+                            if (file.mimeType.contains('pdf')) {
+                              iconData = Icons.picture_as_pdf;
+                              iconColor = colorScheme.error;
+                            } else if (file.mimeType.contains('presentation') || file.name.endsWith('.ppt') || file.name.endsWith('.pptx')) {
+                              iconData = Icons.slideshow;
+                              iconColor = Colors.orange;
+                            } else if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
+                              iconData = Icons.description;
+                              iconColor = Colors.blue;
+                            }
+
+                            final dateStr = 'Added ${timeago.format(DateTime.fromMillisecondsSinceEpoch(file.addedAt))}';
+
+                            return _buildResultCard(
+                              context: context,
+                              title: file.name,
+                              icon: iconData,
+                              iconColor: iconColor,
+                              iconBgColor: iconColor.withOpacity(0.1),
+                              matchType: matchType,
+                              matchColor: matchColor,
+                              date: dateStr,
+                              onTap: () {
+                                // Navigate to PDF viewer
+                                context.push('/pdf', extra: {'localId': localId});
+                              },
+                            );
+                          },
+                        ),
             ),
           ],
         ),
       ),
       bottomNavigationBar: const AppBottomNavBar(currentIndex: 1),
-    );
-  }
-
-  Widget _buildFilterChip(BuildContext context, String label, Color dotColor) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Chip(
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(width: 8, height: 8, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
-          const SizedBox(width: 8),
-          Text(label, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: colorScheme.onSurfaceVariant)),
-        ],
-      ),
-      backgroundColor: colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: colorScheme.outlineVariant),
-      ),
     );
   }
 
@@ -152,15 +207,14 @@ class SearchResultsScreen extends StatelessWidget {
     required Color iconBgColor,
     required String matchType,
     required Color matchColor,
-    required String folder,
     required String date,
-    required String snippet,
+    required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     
     return InkWell(
-      onTap: () {},
+      onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -193,32 +247,34 @@ class SearchResultsScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(child: Text(title, style: theme.textTheme.headlineSmall, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                      Expanded(
+                        child: Text(
+                          title, 
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold), 
+                          maxLines: 1, 
+                          overflow: TextOverflow.ellipsis
+                        ),
+                      ),
                       Container(
+                        margin: const EdgeInsets.only(left: 8),
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: matchColor.withOpacity(0.2),
+                          color: matchColor.withOpacity(0.5),
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: matchColor.withOpacity(0.3)),
+                          border: Border.all(color: matchColor),
                         ),
-                        child: Text(matchType, style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                        child: Text(matchType, style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant, fontSize: 10)),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.folder, size: 14, color: colorScheme.outline),
+                      Icon(Icons.access_time, size: 14, color: colorScheme.outline),
                       const SizedBox(width: 4),
-                      Text(folder, style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
-                      const SizedBox(width: 8),
-                      Text('•', style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
-                      const SizedBox(width: 8),
                       Text(date, style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(snippet, style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant), maxLines: 3, overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
