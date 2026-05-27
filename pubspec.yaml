@@ -48,6 +48,7 @@ dependencies:
   flutter_riverpod: ^3.3.1
   google_fonts: ^8.1.0
   syncfusion_flutter_pdfviewer: ^33.2.8
+  share_plus: ^12.0.2
 
 dev_dependencies:
   flutter_test:

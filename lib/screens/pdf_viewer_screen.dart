@@ -1,7 +1,10 @@
 import 'dart:typed_data';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../providers/database_provider.dart';
@@ -64,6 +67,30 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
           _errorMessage = e.toString();
           _isLoading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _sharePdf() async {
+    if (_pdfBytes == null) return;
+    
+    final database = ref.read(databaseProvider);
+    final file = database.files[widget.fileId];
+    final fileName = file?.name ?? 'Document.pdf';
+
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final cacheDir = Directory('${dir.path}/pdf_cache');
+      final localFile = File('${cacheDir.path}/${widget.fileId}.pdf');
+      
+      if (await localFile.exists()) {
+        await Share.shareXFiles([XFile(localFile.path)], subject: fileName);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to share file: $e')),
+        );
       }
     }
   }
@@ -134,7 +161,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
         ),
         centerTitle: true,
         actions: [
-          IconButton(icon: Icon(Icons.ios_share, color: colorScheme.onSurfaceVariant), onPressed: () {}),
+          IconButton(icon: Icon(Icons.ios_share, color: colorScheme.onSurfaceVariant), onPressed: _sharePdf),
           PopupMenuButton<String>(
             icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant),
             onSelected: (value) {
