@@ -1,13 +1,18 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="192dp"
-    android:height="192dp"
-    android:viewportWidth="24.0"
-    android:viewportHeight="24.0">
+    android:width="288dp"
+    android:height="288dp"
+    android:viewportWidth="48.0"
+    android:viewportHeight="48.0">
 
+    <!-- Wrap in a static translation group to center the 24x24 logo inside the 48x48 viewport -->
     <group
-        android:name="logo_group"
-        android:pivotX="12.0"
-        android:pivotY="12.0">
+        android:translateX="12.0"
+        android:translateY="12.0">
+        
+        <group
+            android:name="logo_group"
+            android:pivotX="12.0"
+            android:pivotY="12.0">
         
         <!-- Top smallest tab -->
         <path
@@ -47,5 +52,6 @@
             android:strokeWidth="1.5"
             android:strokeLineCap="round"
             android:pathData="M 6.5 18 L 13.5 18" />
+        </group>
     </group>
 </vector>
