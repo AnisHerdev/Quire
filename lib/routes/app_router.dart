@@ -6,6 +6,8 @@ import '../screens/login_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/file_list_screen.dart';
+import '../screens/subject_files_screen.dart';
+import '../screens/inbox_screen.dart';
 import '../screens/search_results_screen.dart';
 import '../screens/pdf_viewer_screen.dart';
 import '../screens/offline_files_screen.dart';
@@ -59,6 +61,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           final id = state.pathParameters['id']!;
           return FileListScreen(folderId: id);
         },
+      ),
+      GoRoute(
+        path: '/subject/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return SubjectFilesScreen(subjectId: id);
+        },
+      ),
+      GoRoute(
+        path: '/inbox',
+        builder: (context, state) => const InboxScreen(),
       ),
       GoRoute(
         path: '/search',

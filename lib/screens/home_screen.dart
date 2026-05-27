@@ -23,7 +23,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ref.read(databaseProvider.notifier).init();
       
       // Initialize OS share sheet listener
-      ref.read(sharingServiceProvider).init((files) {
+      ref.read(sharingServiceProvider).init((files) async {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -32,7 +32,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           );
         }
-        ref.read(databaseProvider.notifier).processSharedFiles(files);
+        
+        try {
+          await ref.read(databaseProvider.notifier).processSharedFiles(files);
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please sign in to Quire first to save shared files.'),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
       });
     });
   }
@@ -78,6 +91,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     
     final semesters = database.semesters.values.toList()
       ..sort((a, b) => a.order.compareTo(b.order));
+
+    final inboxCount = database.files.values.where((f) => f.semesterId.isEmpty && f.subjectId.isEmpty).length;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -139,6 +154,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
             const SizedBox(height: 48),
+
+            // Inbox Section (Only visible if there are unorganized files)
+            if (inboxCount > 0) ...[
+              _buildInboxCard(context, inboxCount),
+              const SizedBox(height: 32),
+            ],
 
             // Section Header
             Row(
@@ -283,6 +304,75 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInboxCard(BuildContext context, int count) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+
+    return InkWell(
+      onTap: () {
+        context.push('/inbox');
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: colorScheme.secondaryContainer.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colorScheme.secondary),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.secondary,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.download, color: colorScheme.onSecondary),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Needs Organization',
+                    style: textTheme.titleMedium?.copyWith(
+                      color: colorScheme.onSecondaryContainer,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Shared from external apps',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSecondaryContainer.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: colorScheme.error,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                count.toString(),
+                style: textTheme.labelLarge?.copyWith(
+                  color: colorScheme.onError,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ),

@@ -59,7 +59,30 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     await ref.read(syncServiceProvider).saveAndSync(state);
   }
 
+  Future<bool> _ensureDriveAuthenticated() async {
+    final driveService = ref.read(driveServiceProvider);
+    if (driveService.isReady) return true;
+
+    final authService = ref.read(authServiceProvider);
+    var googleAccount = authService.currentGoogleAccount;
+    if (googleAccount == null) {
+      googleAccount = await authService.signInSilently();
+    }
+    
+    if (googleAccount != null) {
+      driveService.setAccount(googleAccount);
+      return true;
+    }
+    
+    return false;
+  }
+
   Future<void> processSharedFiles(List<SharedMediaFile> files) async {
+    final isAuthenticated = await _ensureDriveAuthenticated();
+    if (!isAuthenticated) {
+      throw StateError('User is not authenticated with Google.');
+    }
+
     final driveService = ref.read(driveServiceProvider);
     final updatedFiles = Map<String, QuireFileModel>.from(state.files);
     bool stateChanged = false;
@@ -99,5 +122,35 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
       state = state.copyWith(files: updatedFiles);
       await ref.read(syncServiceProvider).saveAndSync(state);
     }
+  }
+
+  Future<Future<void> Function()> moveFiles(List<String> fileIds, String newSemesterId, String newSubjectId) async {
+    final originalStates = <String, QuireFileModel>{};
+    final updatedFiles = Map<String, QuireFileModel>.from(state.files);
+    
+    for (final id in fileIds) {
+      if (updatedFiles.containsKey(id)) {
+        originalStates[id] = updatedFiles[id]!;
+        updatedFiles[id] = updatedFiles[id]!.copyWith(
+          semesterId: newSemesterId,
+          subjectId: newSubjectId,
+        );
+      }
+    }
+    
+    state = state.copyWith(files: updatedFiles);
+    await ref.read(syncServiceProvider).saveAndSync(state);
+
+    // Return an undo function
+    return () async {
+      final undoFiles = Map<String, QuireFileModel>.from(state.files);
+      for (final id in originalStates.keys) {
+        if (undoFiles.containsKey(id)) {
+          undoFiles[id] = originalStates[id]!;
+        }
+      }
+      state = state.copyWith(files: undoFiles);
+      await ref.read(syncServiceProvider).saveAndSync(state);
+    };
   }
 }

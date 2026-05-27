@@ -25,6 +25,8 @@ class DriveService {
 
   DriveService();
 
+  bool get isReady => _account != null;
+
   void setAccount(GoogleSignInAccount? account) {
     _account = account;
   }
