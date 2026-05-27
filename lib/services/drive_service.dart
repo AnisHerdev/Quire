@@ -255,4 +255,27 @@ class DriveService {
       return [];
     }
   }
+
+  Future<String> getStorageQuota() async {
+    try {
+      final driveApi = await _getDriveApi();
+      final about = await driveApi.about.get($fields: 'storageQuota');
+      
+      final usageBytes = int.tryParse(about.storageQuota?.usage ?? '0') ?? 0;
+      final limitBytes = int.tryParse(about.storageQuota?.limit ?? '0') ?? 0;
+      
+      if (limitBytes == 0) return 'Unknown Storage';
+      
+      String formatBytes(int bytes) {
+        if (bytes < 1024) return '$bytes B';
+        if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+        if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+        return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+      }
+      
+      return '${formatBytes(usageBytes)} used of ${formatBytes(limitBytes)}';
+    } catch (e) {
+      return 'Storage unavailable';
+    }
+  }
 }

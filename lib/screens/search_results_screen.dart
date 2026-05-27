@@ -186,7 +186,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                               date: dateStr,
                               onTap: () {
                                 // Navigate to PDF viewer
-                                context.push('/pdf', extra: {'localId': localId});
+                                context.push('/pdf-viewer/$localId');
                               },
                             );
                           },

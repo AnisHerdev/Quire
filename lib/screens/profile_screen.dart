@@ -1,14 +1,114 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
+import '../providers/drive_provider.dart';
+import '../services/cache_service.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  String _storageQuota = 'Loading...';
+  String _cacheSize = 'Loading...';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadStats();
+    });
+  }
+
+  Future<void> _loadStats() async {
+    final driveService = ref.read(driveServiceProvider);
+    final cacheService = ref.read(cacheServiceProvider);
+    
+    if (driveService.isReady) {
+      final quota = await driveService.getStorageQuota();
+      if (mounted) setState(() => _storageQuota = quota);
+    } else {
+      if (mounted) setState(() => _storageQuota = 'Offline');
+    }
+    
+    final cacheSize = await cacheService.getCacheSizeFormatted();
+    if (mounted) setState(() => _cacheSize = cacheSize);
+  }
+
+  void _showClearCacheDialog() {
+    final theme = Theme.of(context);
+    int keepCount = 10;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            backgroundColor: theme.colorScheme.surface,
+            title: Text('Clear Local Cache', style: theme.textTheme.headlineSmall),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('How many recently accessed files would you like to keep downloaded?', style: theme.textTheme.bodyMedium),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Keep: $keepCount', style: theme.textTheme.labelLarge),
+                    Expanded(
+                      child: Slider(
+                        value: keepCount.toDouble(),
+                        min: 0,
+                        max: 50,
+                        divisions: 10,
+                        activeColor: theme.colorScheme.primary,
+                        onChanged: (val) {
+                          setStateDialog(() => keepCount = val.toInt());
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text('Any deleted files will simply re-download from Drive when you open them next.', style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline)),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('Cancel', style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.onSurface)),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await ref.read(cacheServiceProvider).clearCacheExceptRecent(keepCount);
+                  _loadStats();
+                },
+                style: FilledButton.styleFrom(backgroundColor: theme.colorScheme.error, foregroundColor: theme.colorScheme.onError),
+                child: const Text('Clear'),
+              ),
+            ],
+          );
+        }
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
+    
+    final authState = ref.watch(authProvider);
+    final user = authState.user;
+    final themeMode = ref.watch(themeProvider);
 
     return Scaffold(
       backgroundColor: colorScheme.background,
@@ -35,15 +135,22 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    CircleAvatar(
-                      radius: 48,
-                      backgroundColor: colorScheme.surfaceContainer,
-                      child: Icon(Icons.person, size: 48, color: colorScheme.outline),
-                    ),
+                    if (user?.photoUrl.isNotEmpty == true)
+                      CircleAvatar(
+                        radius: 48,
+                        backgroundImage: NetworkImage(user!.photoUrl),
+                        backgroundColor: colorScheme.surfaceContainer,
+                      )
+                    else
+                      CircleAvatar(
+                        radius: 48,
+                        backgroundColor: colorScheme.surfaceContainer,
+                        child: Icon(Icons.person, size: 48, color: colorScheme.outline),
+                      ),
                     const SizedBox(height: 16),
-                    Text('Rahul Sharma', style: textTheme.headlineMedium?.copyWith(color: colorScheme.onBackground)),
+                    Text(user?.displayName ?? 'Scholar', style: textTheme.headlineMedium?.copyWith(color: colorScheme.onBackground)),
                     const SizedBox(height: 4),
-                    Text('rahul.s@college.edu', style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+                    Text(user?.email ?? 'Unknown Email', style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -131,15 +238,20 @@ class ProfileScreen extends StatelessWidget {
                       icon: Icons.dark_mode,
                       title: 'Dark Mode',
                       subtitle: 'Adjust interface appearance',
-                      trailing: Switch(value: false, onChanged: (val) {}),
+                      trailing: Switch(
+                        value: themeMode == ThemeMode.dark || (themeMode == ThemeMode.system && MediaQuery.of(context).platformBrightness == Brightness.dark),
+                        onChanged: (val) {
+                          ref.read(themeProvider.notifier).toggleTheme(context);
+                        },
+                      ),
                     ),
                     const Divider(height: 1),
                     _buildSettingsTile(
                       context,
                       icon: Icons.storage,
                       title: 'Storage',
-                      subtitle: '2.4 GB used of 15 GB',
-                      trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+                      subtitle: _storageQuota,
+                      trailing: Icon(Icons.cloud_done, color: colorScheme.secondary),
                     ),
                     const Divider(height: 1),
                     _buildSettingsTile(
@@ -154,7 +266,8 @@ class ProfileScreen extends StatelessWidget {
                       context,
                       icon: Icons.cleaning_services,
                       title: 'Clear Cache',
-                      subtitle: 'Free up local space (142 MB)',
+                      subtitle: 'Free up local space ($_cacheSize)',
+                      onTap: _showClearCacheDialog,
                     ),
                   ],
                 ),
@@ -165,7 +278,9 @@ class ProfileScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   TextButton.icon(
-                    onPressed: () {},
+                    onPressed: () {
+                      ref.read(authProvider.notifier).signOut();
+                    },
                     icon: Icon(Icons.logout, color: colorScheme.error),
                     label: Text('Sign Out', style: textTheme.labelLarge?.copyWith(color: colorScheme.error)),
                     style: TextButton.styleFrom(
@@ -183,7 +298,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSettingsTile(BuildContext context, {required IconData icon, required String title, required String subtitle, Widget? trailing}) {
+  Widget _buildSettingsTile(BuildContext context, {required IconData icon, required String title, required String subtitle, Widget? trailing, VoidCallback? onTap}) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     
@@ -198,7 +313,7 @@ class ProfileScreen extends StatelessWidget {
       subtitle: Text(subtitle, style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant, fontSize: 14)),
       trailing: trailing,
       contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      onTap: trailing is Switch ? null : () {},
+      onTap: trailing is Switch ? null : (onTap ?? () {}),
     );
   }
 }
