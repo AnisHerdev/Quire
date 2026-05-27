@@ -59,6 +59,121 @@ class _SubjectFilesScreenState extends ConsumerState<SubjectFilesScreen> {
     }
   }
 
+  void _showDeleteConfirmation(List<String> fileIds) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    
+    final database = ref.read(databaseProvider);
+    final isSingle = fileIds.length == 1;
+    final title = isSingle ? (database.files[fileIds.first]?.name ?? 'this file') : '${fileIds.length} files';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colorScheme.errorContainer.withValues(alpha: 0.3),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.delete_outline, color: colorScheme.error, size: 28),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Delete $title?', style: textTheme.titleLarge),
+                          const SizedBox(height: 4),
+                          Text('This will permanently delete this from your Google Drive.', 
+                            style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await _executeDelete(fileIds);
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: colorScheme.error,
+                      foregroundColor: colorScheme.onError,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: const Text('Delete Permanently', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: Text('Cancel', style: TextStyle(fontSize: 16, color: colorScheme.onSurfaceVariant)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _executeDelete(List<String> fileIds) async {
+    try {
+      await ref.read(databaseProvider.notifier).deleteFiles(fileIds);
+      if (mounted) {
+        setState(() {
+          _selectedFiles.clear();
+          _isSelectionMode = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        final errorMsg = e.toString().replaceAll('Exception: ', '').replaceAll('Bad state: ', '');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMsg),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+            action: errorMsg.contains('internet connection') 
+                ? SnackBarAction(
+                    label: 'Retry', 
+                    textColor: Theme.of(context).colorScheme.onError,
+                    onPressed: () => _executeDelete(fileIds)
+                  )
+                : null,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -170,25 +285,92 @@ class _SubjectFilesScreenState extends ConsumerState<SubjectFilesScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: _isSelectionMode
-          ? SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    _showMoveDialog(_selectedFiles.toList());
-                  },
-                  icon: const Icon(Icons.drive_file_move),
-                  label: const Text('Move Selected'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: colorScheme.primary,
-                    foregroundColor: colorScheme.onPrimary,
-                  ),
-                ),
-              ),
-            )
+      bottomNavigationBar: null,
+      floatingActionButtonLocation: _isSelectionMode 
+          ? FloatingActionButtonLocation.centerFloat 
+          : FloatingActionButtonLocation.endFloat,
+      floatingActionButton: _isSelectionMode 
+          ? _buildSelectionPill(context, colorScheme, textTheme)
           : null,
+    );
+  }
+
+  Widget _buildSelectionPill(BuildContext context, ColorScheme colorScheme, TextTheme textTheme) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.primary,
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.primary.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: colorScheme.onPrimary.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              '${_selectedFiles.length}',
+              style: textTheme.titleMedium?.copyWith(color: colorScheme.onPrimary, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Selected',
+            style: textTheme.titleMedium?.copyWith(color: colorScheme.onPrimary),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            width: 1,
+            height: 24,
+            color: colorScheme.onPrimary.withValues(alpha: 0.3),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            icon: const Icon(Icons.drive_file_move),
+            color: colorScheme.onPrimary,
+            tooltip: 'Move',
+            onPressed: () {
+              _showMoveDialog(_selectedFiles.toList());
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete),
+            color: colorScheme.onPrimary,
+            tooltip: 'Delete',
+            onPressed: () {
+              _showDeleteConfirmation(_selectedFiles.toList());
+            },
+          ),
+          const SizedBox(width: 4),
+          Container(
+            width: 1,
+            height: 24,
+            color: colorScheme.onPrimary.withValues(alpha: 0.3),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close),
+            color: colorScheme.onPrimary,
+            tooltip: 'Clear',
+            onPressed: () {
+              setState(() {
+                _isSelectionMode = false;
+                _selectedFiles.clear();
+              });
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -270,13 +452,38 @@ class _SubjectFilesScreenState extends ConsumerState<SubjectFilesScreen> {
                   child: Icon(icon, color: iconColor, size: 20),
                 ),
                 if (!_isSelectionMode)
-                  IconButton(
+                  PopupMenuButton<String>(
                     icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant, size: 20),
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () {
-                      _showMoveDialog([fileId]);
+                    onSelected: (value) {
+                      if (value == 'move') {
+                        _showMoveDialog([fileId]);
+                      } else if (value == 'delete') {
+                        _showDeleteConfirmation([fileId]);
+                      }
                     },
+                    itemBuilder: (BuildContext context) => [
+                      PopupMenuItem<String>(
+                        value: 'move',
+                        child: Row(
+                          children: [
+                            Icon(Icons.drive_file_move, color: colorScheme.onSurface),
+                            const SizedBox(width: 12),
+                            const Text('Move to...'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem<String>(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete, color: colorScheme.error),
+                            const SizedBox(width: 12),
+                            Text('Delete', style: TextStyle(color: colorScheme.error)),
+                          ],
+                        ),
+                      ),
+                    ],
                   )
                 else
                   Icon(
