@@ -1,21 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../providers/drive_provider.dart';
+import '../providers/auth_provider.dart';
+import '../models/note_file_model.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
 
+    final authState = ref.watch(authProvider);
+    final driveState = ref.watch(driveFolderProvider);
+
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: Text(
-          'Quire',
+          authState.user?.displayName ?? 'Quire',
           style: textTheme.headlineMedium?.copyWith(
             color: colorScheme.primary,
           ),
@@ -26,9 +33,14 @@ class HomeScreen extends StatelessWidget {
             onPressed: () {},
           ),
           const SizedBox(width: 8),
-          const CircleAvatar(
+          CircleAvatar(
             radius: 16,
-            backgroundImage: NetworkImage('https://via.placeholder.com/150'), // Placeholder avatar
+            backgroundImage: authState.user?.photoUrl.isNotEmpty == true 
+                ? NetworkImage(authState.user!.photoUrl) 
+                : null,
+            child: authState.user?.photoUrl.isEmpty == true 
+                ? const Icon(Icons.person, size: 20) 
+                : null,
           ),
           const SizedBox(width: 16),
         ],
@@ -73,7 +85,7 @@ class HomeScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  'Your Semesters',
+                  'Your Notes',
                   style: textTheme.headlineMedium,
                 ),
                 InkWell(
@@ -93,37 +105,71 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // Folder Grid
-            GridView.count(
-              crossAxisCount: 2, // 2 columns for mobile
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _buildFolderCard(
-                  context: context,
-                  title: 'Semester 1',
-                  itemCount: '12 items',
-                  id: 'sem1',
-                  colorTheme: colorScheme.primaryContainer,
+            // Dynamic Content Area
+            if (driveState.isLoading)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Column(
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
+                      Text("Loading your notes...", style: textTheme.bodyLarge),
+                    ],
+                  ),
                 ),
-                _buildFolderCard(
-                  context: context,
-                  title: 'Semester 2',
-                  itemCount: '8 items',
-                  id: 'sem2',
-                  colorTheme: colorScheme.secondaryContainer,
+              )
+            else if (driveState.error != null)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Column(
+                    children: [
+                      Icon(Icons.error_outline, size: 48, color: colorScheme.error),
+                      const SizedBox(height: 16),
+                      Text(
+                        driveState.error!,
+                        style: textTheme.bodyMedium?.copyWith(color: colorScheme.error),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          ref.read(driveFolderProvider.notifier).initialize();
+                        },
+                        icon: const Icon(Icons.refresh),
+                        label: const Text("Retry"),
+                      ),
+                    ],
+                  ),
                 ),
-                _buildFolderCard(
-                  context: context,
-                  title: 'Certificates',
-                  itemCount: '3 items',
-                  id: 'cert',
-                  colorTheme: colorScheme.surfaceVariant, // Placeholder for tertiary
+              )
+            else if (driveState.rootFiles.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Text(
+                    "No notes found. Create a folder to get started.",
+                    style: textTheme.bodyLarge?.copyWith(color: colorScheme.outline),
+                  ),
                 ),
-              ],
-            ),
+              )
+            else
+              GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 1.0,
+                ),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: driveState.rootFiles.length,
+                itemBuilder: (context, index) {
+                  final file = driveState.rootFiles[index];
+                  return _buildFileCard(context: context, file: file);
+                },
+              ),
           ],
         ),
       ),
@@ -140,19 +186,31 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFolderCard({
+  Widget _buildFileCard({
     required BuildContext context,
-    required String title,
-    required String itemCount,
-    required String id,
-    required Color colorTheme,
+    required NoteFileModel file,
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     
+    final bool isFolder = file.isFolder;
+    final icon = isFolder ? Icons.folder : Icons.insert_drive_file;
+    final iconColor = isFolder ? colorScheme.primaryContainer : colorScheme.secondaryContainer;
+    
+    // Drive API doesn't return immediate child counts, so we use modified time or generic text for files
+    final subtitle = isFolder 
+        ? "Folder" 
+        : (file.modifiedTime != null ? '${file.modifiedTime!.year}-${file.modifiedTime!.month.toString().padLeft(2, '0')}-${file.modifiedTime!.day.toString().padLeft(2, '0')}' : "File");
+
     return InkWell(
       onTap: () {
-        context.push('/folder/$id');
+        if (isFolder) {
+          // Changed to pass folderId via query parameter, or standard path matching
+          context.push('/folder/${file.id}');
+        } else {
+          // If it's a file, presumably we'll have a pdf viewer route eventually
+          context.push('/pdf-viewer/${file.id}');
+        }
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(
@@ -184,7 +242,7 @@ class HomeScreen extends StatelessWidget {
                     color: colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.folder, color: colorScheme.primaryContainer),
+                  child: Icon(icon, color: iconColor),
                 ),
               ],
             ),
@@ -192,16 +250,17 @@ class HomeScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
-                  style: theme.textTheme.headlineSmall, // closer to headline-md
+                  file.name,
+                  style: theme.textTheme.headlineSmall?.copyWith(fontSize: 16),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  itemCount,
+                  subtitle,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.outline,
+                    fontSize: 12,
                   ),
                 ),
               ],

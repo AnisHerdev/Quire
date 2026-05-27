@@ -65,7 +65,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SearchResultsScreen(),
       ),
       GoRoute(
-        path: '/viewer',
+        path: '/pdf-viewer/:fileId',
         builder: (context, state) => const PdfViewerScreen(),
       ),
       GoRoute(
