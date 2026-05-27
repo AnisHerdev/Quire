@@ -7,6 +7,9 @@ import '../providers/database_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/sharing_service.dart';
 import '../models/database_model.dart';
+import '../widgets/expandable_fab.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -124,6 +127,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _pickAndUploadFiles() async {
+    final authState = ref.read(authProvider);
+    if (authState.user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please sign in to add files')),
+      );
+      return;
+    }
+
+    try {
+      FilePickerResult? result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        allowMultiple: true,
+      );
+
+      if (result != null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Processing ${result.files.length} file(s)...')),
+        );
+
+        final paths = <String>[];
+        final names = <String>[];
+
+        for (var pickedFile in result.files) {
+          if (pickedFile.path != null) {
+            paths.add(pickedFile.path!);
+            names.add(pickedFile.name);
+          }
+        }
+
+        if (paths.isNotEmpty) {
+          await ref.read(databaseProvider.notifier).addPickedFiles(paths, names, null);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error picking files: $e');
+    }
   }
 
   @override
@@ -269,14 +313,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddFolderDialog,
-        backgroundColor: colorScheme.secondaryContainer,
-        foregroundColor: colorScheme.onSecondaryContainer,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Icon(Icons.create_new_folder, size: 28),
+      floatingActionButton: ExpandableFab(
+        distance: 64.0,
+        children: [
+          ActionButton(
+            onPressed: () {
+              _showAddFolderDialog();
+            },
+            icon: const Icon(Icons.create_new_folder),
+            label: 'Add Folder',
+          ),
+          ActionButton(
+            onPressed: () {
+              _pickAndUploadFiles();
+            },
+            icon: const Icon(Icons.upload_file),
+            label: 'Upload File',
+          ),
+        ],
       ),
       bottomNavigationBar: const AppBottomNavBar(currentIndex: 0),
     );

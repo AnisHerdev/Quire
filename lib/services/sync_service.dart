@@ -69,20 +69,17 @@ class SyncService {
 
       final cloudDb = QuireDatabase.fromJson(jsonDecode(cloudJsonString));
       
-      final mergedFolders = Map<String, FolderModel>.from(cloudDb.folders)..addAll(localDb.folders);
-      final mergedFiles = Map<String, QuireFileModel>.from(cloudDb.files)..addAll(localDb.files);
-
-      final finalDb = localDb.copyWith(
-        folders: mergedFolders,
-        files: mergedFiles,
-      );
-
-      await _driveService.uploadDatabase(jsonEncode(finalDb.toJson()));
-      
-      final file = await _getLocalDbFile();
-      await file.writeAsString(jsonEncode(finalDb.toJson()));
-      
-      return finalDb;
+      // Compare timestamps to determine the winner
+      if (localDb.syncMetadata.lastSyncedAt >= cloudDb.syncMetadata.lastSyncedAt) {
+        // Local is newer or equal, overwrite cloud
+        await _driveService.uploadDatabase(jsonEncode(localDb.toJson()));
+        return localDb;
+      } else {
+        // Cloud is newer, overwrite local cache
+        final file = await _getLocalDbFile();
+        await file.writeAsString(jsonEncode(cloudDb.toJson()));
+        return cloudDb;
+      }
     } catch (e) {
       print('Cloud sync failed, data is safe locally: $e');
       return localDb;

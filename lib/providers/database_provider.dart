@@ -178,6 +178,58 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     }
   }
 
+  Future<void> addPickedFiles(List<String> paths, List<String> names, String? folderId) async {
+    final isAuthenticated = await _ensureDriveAuthenticated();
+    if (!isAuthenticated) {
+      throw StateError('User is not authenticated with Google.');
+    }
+
+    final updatedFiles = Map<String, QuireFileModel>.from(state.files);
+    bool stateChanged = false;
+
+    for (int i = 0; i < paths.length; i++) {
+      try {
+        final path = paths[i];
+        final name = names[i];
+        final file = File(path);
+        if (!await file.exists()) continue;
+
+        const uuid = Uuid();
+        final localId = 'local_${uuid.v4()}';
+        
+        final dir = await getApplicationDocumentsDirectory();
+        final cacheDir = Directory('${dir.path}/pdf_cache');
+        if (!await cacheDir.exists()) {
+          await cacheDir.create(recursive: true);
+        }
+        
+        final localFile = File('${cacheDir.path}/$localId.pdf');
+        await file.copy(localFile.path);
+
+        final newFile = QuireFileModel(
+          name: name,
+          mimeType: 'application/pdf',
+          folderId: folderId,
+          addedAt: DateTime.now().millisecondsSinceEpoch,
+          tags: [],
+          syncStatus: 'pending',
+          driveId: null,
+        );
+        
+        updatedFiles[localId] = newFile;
+        stateChanged = true;
+      } catch (e) {
+        print('Error processing picked file: $e');
+      }
+    }
+
+    if (stateChanged) {
+      state = state.copyWith(files: updatedFiles);
+      await ref.read(syncServiceProvider).saveAndSync(state);
+      _syncPendingFiles();
+    }
+  }
+
   Future<void> _syncPendingFiles() async {
     final driveService = ref.read(driveServiceProvider);
     if (!driveService.isReady) return;

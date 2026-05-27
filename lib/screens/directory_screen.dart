@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../providers/database_provider.dart';
 import '../models/database_model.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/expandable_fab.dart';
 
 class DirectoryScreen extends ConsumerStatefulWidget {
   final String folderId;
@@ -76,48 +77,18 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
           SnackBar(content: Text('Processing ${result.files.length} file(s)...')),
         );
 
-        final dbNotifier = ref.read(databaseProvider.notifier);
-        final state = ref.read(databaseProvider);
-        final updatedFiles = Map<String, QuireFileModel>.from(state.files);
-        
-        final dir = await getApplicationDocumentsDirectory();
-        final cacheDir = Directory('${dir.path}/pdf_cache');
-        if (!await cacheDir.exists()) {
-          await cacheDir.create(recursive: true);
-        }
-
-        bool changed = false;
+        final paths = <String>[];
+        final names = <String>[];
 
         for (var pickedFile in result.files) {
           if (pickedFile.path != null) {
-            final file = File(pickedFile.path!);
-            const uuid = Uuid();
-            final localId = 'local_${uuid.v4()}';
-            
-            final localFile = File('${cacheDir.path}/$localId.pdf');
-            await file.copy(localFile.path);
-
-            final newFile = QuireFileModel(
-              name: pickedFile.name,
-              mimeType: 'application/pdf',
-              folderId: widget.folderId,
-              addedAt: DateTime.now().millisecondsSinceEpoch,
-              tags: [],
-              syncStatus: 'pending',
-              driveId: null,
-            );
-            
-            updatedFiles[localId] = newFile;
-            changed = true;
+            paths.add(pickedFile.path!);
+            names.add(pickedFile.name);
           }
         }
 
-        if (changed) {
-          // This is a bit of a hack since processSharedFiles is what triggers background upload, 
-          // but we can just update the state and let the user manually sync or we can trigger it.
-          // For simplicity, we just save it. It will sync on next app launch or we can call sync.
-          dbNotifier.state = state.copyWith(files: updatedFiles);
-          await dbNotifier.init(); // trigger sync
+        if (paths.isNotEmpty) {
+          await ref.read(databaseProvider.notifier).addPickedFiles(paths, names, widget.folderId);
         }
       }
     } catch (e) {
@@ -293,12 +264,21 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                 ],
               ],
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddOptions,
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Icon(Icons.add, size: 28),
+      floatingActionButton: ExpandableFab(
+        distance: 64.0,
+        children: [
+          if (widget.depth < 3)
+            ActionButton(
+              onPressed: _showAddFolderDialog,
+              icon: const Icon(Icons.create_new_folder),
+              label: 'Add Folder',
+            ),
+          ActionButton(
+            onPressed: _pickAndUploadFiles,
+            icon: const Icon(Icons.upload_file),
+            label: 'Upload File',
+          ),
+        ],
       ),
     );
   }
