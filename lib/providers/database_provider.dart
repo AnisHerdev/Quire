@@ -223,4 +223,47 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
       await ref.read(syncServiceProvider).saveAndSync(state);
     };
   }
+
+  Future<void> deleteFiles(List<String> fileIds) async {
+    final driveService = ref.read(driveServiceProvider);
+    
+    bool requiresCloudDeletion = false;
+    for (final id in fileIds) {
+      final file = state.files[id];
+      if (file != null && file.driveId != null) {
+        requiresCloudDeletion = true;
+        break;
+      }
+    }
+
+    if (requiresCloudDeletion) {
+      final isAuthenticated = await _ensureDriveAuthenticated();
+      if (!isAuthenticated) {
+        throw StateError('You need an internet connection to delete files from Drive.');
+      }
+    }
+
+    final updatedFiles = Map<String, QuireFileModel>.from(state.files);
+    final dir = await getApplicationDocumentsDirectory();
+    final cacheDir = Directory('${dir.path}/pdf_cache');
+
+    for (final id in fileIds) {
+      final file = updatedFiles[id];
+      if (file == null) continue;
+
+      if (file.driveId != null) {
+        await driveService.deleteVisibleFile(file.driveId!);
+      }
+
+      final localFile = File('${cacheDir.path}/$id.pdf');
+      if (await localFile.exists()) {
+        await localFile.delete();
+      }
+
+      updatedFiles.remove(id);
+    }
+
+    state = state.copyWith(files: updatedFiles);
+    await ref.read(syncServiceProvider).saveAndSync(state);
+  }
 }

@@ -181,6 +181,15 @@ class DriveService {
     }
   }
 
+  Future<void> deleteVisibleFile(String fileId) async {
+    try {
+      final driveApi = await _getDriveApi();
+      await driveApi.files.delete(fileId);
+    } catch (e) {
+      throw Exception('Failed to delete file from Google Drive: $e');
+    }
+  }
+
   Future<Uint8List> downloadFile(String fileId) async {
     try {
       final driveApi = await _getDriveApi();
