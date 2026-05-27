@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PDF Viewer - IA1 - Binary Trees</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-container": "#75b393",
+                        "tertiary-fixed-dim": "#95d4b3",
+                        "primary-fixed": "#c1ecd4",
+                        "tertiary-fixed": "#b1f0ce",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-on-surface": "#f2f1ec",
+                        "on-surface-variant": "#414844",
+                        "surface-tint": "#3f6653",
+                        "outline": "#717973",
+                        "on-primary-fixed": "#002114",
+                        "on-background": "#1b1c19",
+                        "primary": "#012d1d",
+                        "secondary-fixed": "#ffdf9f",
+                        "primary-fixed-dim": "#a5d0b9",
+                        "inverse-primary": "#a5d0b9",
+                        "on-error": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "surface-variant": "#e3e3de",
+                        "on-error-container": "#93000a",
+                        "surface": "#faf9f4",
+                        "tertiary-container": "#00452e",
+                        "secondary-fixed-dim": "#eec058",
+                        "outline-variant": "#c1c8c2",
+                        "background": "#faf9f4",
+                        "surface-container-highest": "#e3e3de",
+                        "surface-container-high": "#e9e8e3",
+                        "secondary": "#795900",
+                        "surface-container": "#efeee9",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed-variant": "#274e3d",
+                        "secondary-container": "#fece65",
+                        "on-secondary-fixed-variant": "#5b4300",
+                        "primary-container": "#1b4332",
+                        "on-primary": "#ffffff",
+                        "inverse-surface": "#30312e",
+                        "on-surface": "#1b1c19",
+                        "on-secondary-fixed": "#261a00",
+                        "surface-dim": "#dbdad5",
+                        "on-secondary-container": "#755700",
+                        "tertiary": "#002d1c",
+                        "error-container": "#ffdad6",
+                        "surface-container-low": "#f5f4ef",
+                        "on-tertiary-fixed": "#002114",
+                        "on-primary-container": "#86af99",
+                        "on-tertiary-fixed-variant": "#0e5138",
+                        "surface-bright": "#faf9f4"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "12px",
+                        "lg": "48px",
+                        "xl": "64px",
+                        "base": "8px",
+                        "md": "24px",
+                        "margin_desktop": "40px",
+                        "gutter": "24px",
+                        "xs": "4px",
+                        "margin_mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "headline-lg-mobile": ["Source Serif 4"],
+                        "headline-md": ["Source Serif 4"],
+                        "display-lg": ["Source Serif 4"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "headline-lg": ["Source Serif 4"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for a cleaner look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c1c8c2; /* outline-variant */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #717973; /* outline */
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface-container-low text-on-surface font-body-md h-screen flex flex-col overflow-hidden antialiased">
+<header class="h-16 flex-shrink-0 bg-surface-container-lowest/80 backdrop-blur-md border-b border-outline-variant/30 flex items-center justify-between px-margin_mobile md:px-margin_desktop z-40 transition-all duration-300">
+<div class="flex items-center gap-4 flex-1">
+<button aria-label="Close document" class="p-2 -ml-2 rounded-full hover:bg-surface-container transition-colors text-on-surface-variant flex items-center justify-center group">
+<span class="material-symbols-outlined group-active:scale-90 transition-transform" data-icon="close">close</span>
+</button>
+</div>
+<div class="flex flex-col items-center flex-1 text-center min-w-0">
+<h1 class="font-label-lg text-label-lg text-on-surface truncate w-full max-w-[200px] md:max-w-md">IA1 - Binary Trees.pdf</h1>
+<span class="font-label-sm text-label-sm text-outline mt-0.5">Page 1 of 12</span>
+</div>
+<div class="flex items-center justify-end gap-1 md:gap-2 flex-1">
+<button aria-label="Share" class="p-2 rounded-full hover:bg-surface-container transition-colors text-on-surface-variant flex items-center justify-center group">
+<span class="material-symbols-outlined group-active:scale-90 transition-transform" data-icon="ios_share">ios_share</span>
+</button>
+<button aria-label="Bookmark" class="p-2 rounded-full hover:bg-surface-container transition-colors text-on-surface-variant flex items-center justify-center group">
+<span class="material-symbols-outlined group-active:scale-90 transition-transform" data-icon="bookmark">bookmark</span>
+</button>
+</div>
+</header>
+<main class="flex-1 overflow-y-auto w-full relative">
+<div class="min-h-full py-8 md:py-12 px-4 md:px-8 flex justify-center">
+<article class="bg-surface-container-lowest w-full max-w-[850px] shadow-[0_4px_20px_rgba(27,67,50,0.06)] ring-1 ring-outline-variant/10 rounded-sm p-8 md:p-16 lg:p-20 relative">
+<header class="mb-12">
+<h2 class="font-display-lg text-display-lg text-on-surface mb-6 leading-tight">1. Structural Overview of Binary Search Trees</h2>
+<div class="w-16 h-1 bg-primary/20 mb-6"></div>
+<p class="font-body-lg text-body-lg text-on-surface-variant leading-relaxed">
+                        In computer science, a binary search tree (BST), also called an ordered or sorted binary tree, is a rooted binary tree data structure with the key of each internal node being greater than all the keys in the respective node's left subtree and less than the ones in its right subtree.
+                    </p>
+</header>
+<section class="mb-10 space-y-6">
+<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed text-justify">
+                        The time complexity of operations on the binary search tree is directly proportional to the height of the tree. BSTs allow binary search for fast lookup, addition, and removal of data items. The nodes in a BST are conceptually arranged such that each node possesses a distinct key, facilitating an ordered traversal sequence.
+                    </p>
+<div class="my-10 bg-surface p-6 rounded-lg border border-outline-variant/20 flex flex-col items-center">
+<img alt="Diagram of a Binary Tree" class="w-full max-w-lg h-auto mix-blend-multiply opacity-90" data-alt="A clean, minimalist digital diagram of a binary tree structure presented against a crisp white background. The diagram uses thin, precise deep green lines and open circles to represent nodes and connections, evoking a modern, academic aesthetic. Soft, diffuse lighting highlights the geometric simplicity and organized hierarchy typical of high-quality computer science educational materials." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAB5UDgBvjzUygj4sxZC2lqnQXf88yypKZ1JDMnCmdkpwrew_ocpu1g2jfURl7jAnFrLb-X27IkcxKiox2NPHa422AtHAgYFk-2vJh8jJ2GalVZRD1GwdnA6SKawM30i_cTH0k3b67XwxQZ0moAUUtI1SQ8y_zT0DxhG1kfJ_D2KQSikpPw4fqcA1xEsmhQ9d1v0MhzrKR4EN6JCeZ9sKuUb7ZbYtkdCWjJqADxWXKrrdgoXNP9BNR1pDGA3SFBdk_F4X7cpAt5UFlz"/>
+<p class="font-label-sm text-label-sm text-outline mt-4 text-center">Figure 1.1: A standard unbalanced binary search tree representation.</p>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mt-8 mb-4">1.1 Core Operations</h3>
+<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed text-justify">
+                        Searching for a specific key within a binary search tree involves a recursive or iterative traversal starting from the root node. If the target key is less than the current node's key, the search proceeds to the left child; otherwise, it proceeds to the right child. This comparative logic forms the foundation for insertion and deletion algorithms as well.
+                    </p>
+</section>
+<footer class="mt-20 pt-6 border-t border-outline-variant/20 flex justify-between items-center text-outline font-label-sm text-label-sm">
+<span>CS-301 Data Structures</span>
+<span>1</span>
+</footer>
+</article>
+</div>
+</main>
+<div class="fixed bottom-margin_mobile md:bottom-margin_desktop left-1/2 -translate-x-1/2 z-50 transition-transform duration-300">
+<div class="bg-surface-container-highest/95 backdrop-blur-md px-2 py-2 rounded-full shadow-[0_8px_30px_rgba(27,67,50,0.12)] border border-outline-variant/40 flex items-center gap-1 md:gap-2">
+<div class="flex items-center text-on-surface-variant bg-surface-container-low/50 rounded-full px-2">
+<button aria-label="Zoom out" class="p-2 hover:text-primary transition-colors hover:bg-surface-container rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]" data-icon="remove">remove</span>
+</button>
+<span class="font-label-lg text-label-lg w-14 text-center tabular-nums cursor-default select-none">100%</span>
+<button aria-label="Zoom in" class="p-2 hover:text-primary transition-colors hover:bg-surface-container rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]" data-icon="add">add</span>
+</button>
+</div>
+<div class="w-[1px] h-6 bg-outline-variant/50 mx-1"></div>
+<button aria-label="Search within document" class="p-2.5 text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors rounded-full flex items-center justify-center group">
+<span class="material-symbols-outlined text-[22px] group-active:scale-90 transition-transform" data-icon="search">search</span>
+</button>
+<div class="w-[1px] h-6 bg-outline-variant/50 mx-1"></div>
+<button aria-label="Toggle Night Mode" class="p-2.5 text-on-surface-variant hover:text-secondary-container hover:bg-surface-container transition-colors rounded-full flex items-center justify-center group">
+<span class="material-symbols-outlined text-[22px] group-active:scale-90 transition-transform" data-icon="dark_mode">dark_mode</span>
+</button>
+</div>
+</div>
+</body></html>

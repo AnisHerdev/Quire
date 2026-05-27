@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Quire - Login</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-container": "#75b393",
+                        "tertiary-fixed-dim": "#95d4b3",
+                        "primary-fixed": "#c1ecd4",
+                        "tertiary-fixed": "#b1f0ce",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-on-surface": "#f2f1ec",
+                        "on-surface-variant": "#414844",
+                        "surface-tint": "#3f6653",
+                        "outline": "#717973",
+                        "on-primary-fixed": "#002114",
+                        "on-background": "#1b1c19",
+                        "primary": "#012d1d",
+                        "secondary-fixed": "#ffdf9f",
+                        "primary-fixed-dim": "#a5d0b9",
+                        "inverse-primary": "#a5d0b9",
+                        "on-error": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "surface-variant": "#e3e3de",
+                        "on-error-container": "#93000a",
+                        "surface": "#faf9f4",
+                        "tertiary-container": "#00452e",
+                        "secondary-fixed-dim": "#eec058",
+                        "outline-variant": "#c1c8c2",
+                        "background": "#faf9f4",
+                        "surface-container-highest": "#e3e3de",
+                        "surface-container-high": "#e9e8e3",
+                        "secondary": "#795900",
+                        "surface-container": "#efeee9",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed-variant": "#274e3d",
+                        "secondary-container": "#fece65",
+                        "on-secondary-fixed-variant": "#5b4300",
+                        "primary-container": "#1b4332",
+                        "on-primary": "#ffffff",
+                        "inverse-surface": "#30312e",
+                        "on-surface": "#1b1c19",
+                        "on-secondary-fixed": "#261a00",
+                        "surface-dim": "#dbdad5",
+                        "on-secondary-container": "#755700",
+                        "tertiary": "#002d1c",
+                        "error-container": "#ffdad6",
+                        "surface-container-low": "#f5f4ef",
+                        "on-tertiary-fixed": "#002114",
+                        "on-primary-container": "#86af99",
+                        "on-tertiary-fixed-variant": "#0e5138",
+                        "surface-bright": "#faf9f4"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "12px",
+                        "lg": "48px",
+                        "xl": "64px",
+                        "base": "8px",
+                        "md": "24px",
+                        "margin_desktop": "40px",
+                        "gutter": "24px",
+                        "xs": "4px",
+                        "margin_mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "headline-lg-mobile": ["Source Serif 4"],
+                        "headline-md": ["Source Serif 4"],
+                        "display-lg": ["Source Serif 4"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "headline-lg": ["Source Serif 4"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background min-h-screen flex items-center justify-center p-margin_mobile md:p-margin_desktop relative overflow-hidden">
+<!-- Decorative background elements (Ambient Academic vibe) -->
+<div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-surface-container-high rounded-full blur-[100px] opacity-60 pointer-events-none"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-secondary-fixed-dim rounded-full blur-[120px] opacity-20 pointer-events-none"></div>
+<!-- Main Login Card -->
+<main class="w-full max-w-[420px] bg-surface rounded-xl p-8 md:p-10 shadow-[0_4px_20px_rgba(27,67,50,0.08)] flex flex-col items-center relative z-10 border border-surface-variant">
+<!-- Logo Container -->
+<div class="mb-8 flex justify-center">
+<img alt="Quire Stack Logo" class="w-[96px] h-[96px] object-contain" src="data:image/png;base64,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"/>
+</div>
+<!-- Typography Cluster -->
+<div class="text-center mb-10 w-full">
+<h1 class="font-headline-lg text-headline-lg text-primary-container mb-3 tracking-tight">
+                Welcome to Quire
+            </h1>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-[280px] mx-auto">
+                Sign in with Google to sync your notes across devices
+            </p>
+</div>
+<!-- Action Area -->
+<div class="w-full flex flex-col gap-6 items-center">
+<!-- Google Sign-In Button -->
+<button class="w-full flex items-center justify-center gap-sm bg-surface-container-lowest border border-outline-variant rounded-full py-[10px] px-6 hover:bg-surface-container hover:border-outline transition-all duration-200 shadow-sm active:scale-[0.98]">
+<!-- Standard Google SVG Logo -->
+<svg aria-hidden="true" class="w-5 h-5" viewbox="0 0 24 24">
+<path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
+<path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
+<path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"></path>
+<path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
+</svg>
+<span class="font-label-lg text-label-lg text-on-surface">Continue with Google</span>
+</button>
+<!-- Divider (Optional, adds to structure) -->
+<div class="w-full flex items-center gap-4 opacity-50">
+<div class="h-px bg-outline-variant flex-1"></div>
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">or</span>
+<div class="h-px bg-outline-variant flex-1"></div>
+</div>
+<!-- Alternative / Demo Action -->
+<button class="font-label-lg text-label-lg text-primary hover:text-primary-container transition-colors bg-transparent border-none py-2 px-4 rounded-full hover:bg-surface-container-high">
+                Explore as Guest
+            </button>
+</div>
+<!-- Disclaimer Footer -->
+<div class="mt-xl text-center w-full">
+<div class="flex items-center justify-center gap-xs mb-1 text-outline">
+<span class="material-symbols-outlined text-[16px]">lock</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider">Privacy First</span>
+</div>
+<p class="font-label-sm text-label-sm text-outline max-w-[260px] mx-auto leading-relaxed">
+                We only access the Quire-Notes folder we create in your Drive
+            </p>
+</div>
+</main>
+</body></html>

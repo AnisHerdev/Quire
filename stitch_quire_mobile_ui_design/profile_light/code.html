@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Profile - Quire</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Source+Serif+4:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-container": "#75b393",
+                        "tertiary-fixed-dim": "#95d4b3",
+                        "primary-fixed": "#c1ecd4",
+                        "tertiary-fixed": "#b1f0ce",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-on-surface": "#f2f1ec",
+                        "on-surface-variant": "#414844",
+                        "surface-tint": "#3f6653",
+                        "outline": "#717973",
+                        "on-primary-fixed": "#002114",
+                        "on-background": "#1b1c19",
+                        "primary": "#012d1d",
+                        "secondary-fixed": "#ffdf9f",
+                        "primary-fixed-dim": "#a5d0b9",
+                        "inverse-primary": "#a5d0b9",
+                        "on-error": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "surface-variant": "#e3e3de",
+                        "on-error-container": "#93000a",
+                        "surface": "#faf9f4",
+                        "tertiary-container": "#00452e",
+                        "secondary-fixed-dim": "#eec058",
+                        "outline-variant": "#c1c8c2",
+                        "background": "#faf9f4",
+                        "surface-container-highest": "#e3e3de",
+                        "surface-container-high": "#e9e8e3",
+                        "secondary": "#795900",
+                        "surface-container": "#efeee9",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed-variant": "#274e3d",
+                        "secondary-container": "#fece65",
+                        "on-secondary-fixed-variant": "#5b4300",
+                        "primary-container": "#1b4332",
+                        "on-primary": "#ffffff",
+                        "inverse-surface": "#30312e",
+                        "on-surface": "#1b1c19",
+                        "on-secondary-fixed": "#261a00",
+                        "surface-dim": "#dbdad5",
+                        "on-secondary-container": "#755700",
+                        "tertiary": "#002d1c",
+                        "error-container": "#ffdad6",
+                        "surface-container-low": "#f5f4ef",
+                        "on-tertiary-fixed": "#002114",
+                        "on-primary-container": "#86af99",
+                        "on-tertiary-fixed-variant": "#0e5138",
+                        "surface-bright": "#faf9f4"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "12px",
+                        "lg": "48px",
+                        "xl": "64px",
+                        "base": "8px",
+                        "md": "24px",
+                        "margin_desktop": "40px",
+                        "gutter": "24px",
+                        "xs": "4px",
+                        "margin_mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "headline-lg-mobile": ["Source Serif 4"],
+                        "headline-md": ["Source Serif 4"],
+                        "display-lg": ["Source Serif 4"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "headline-lg": ["Source Serif 4"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background antialiased min-h-screen flex flex-col md:flex-row pb-20 md:pb-0 font-body-md">
+<!-- Navigation Drawer (Desktop) -->
+<aside class="hidden md:flex flex-col py-6 gap-2 bg-surface dark:bg-surface-dim shadow-xl h-screen w-80 rounded-r-xl sticky top-0 shrink-0 z-40">
+<div class="px-6 pb-4">
+<h1 class="font-headline-md text-headline-md text-primary dark:text-primary-fixed-dim">Quire</h1>
+</div>
+<div class="flex items-center gap-4 px-6 py-4 mb-4">
+<img alt="User Avatar" class="w-12 h-12 rounded-full object-cover" data-alt="A close-up portrait of a young man with a slight smile, wearing a casual shirt, shot in bright, natural studio lighting against a clean, light background to match a modern corporate aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOB9eqUFVvQMCBVohI1StHBPFaeT4FIWbxyaF1_ZBLfzCd3fMLgYO2HReq8jKuwwBLrsZQ-7bYzY1tKBiM4ICUgzhHhCH-xgfKJtU7hBpuG1ka_GgigiduA41V5cmndlZuCnKMsDlPVIrALgHzbYYFRaT-dUYfbl6J6kT3RuOO-0hBZWghP5iypWwUf3ELGuWVC8caP6rmGiJmdDEtxskpnqa-LPq1y5USD285CFSM-yMiin6JxTwBBtO24jvZjy36j2Ladr4J_3X1"/>
+<div>
+<p class="font-label-lg text-label-lg text-on-surface font-semibold">Academic Sanctuary</p>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm">scholar@quire.edu</p>
+<p class="font-label-sm text-label-sm text-primary mt-1">Premium Member</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1 w-full flex-grow">
+<a class="flex items-center gap-3 text-on-surface-variant dark:text-outline-variant mx-2 px-4 py-3 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors rounded-full font-label-lg text-label-lg" href="#">
+<span class="material-symbols-outlined">book</span>
+                Library
+            </a>
+<a class="flex items-center gap-3 text-on-surface-variant dark:text-outline-variant mx-2 px-4 py-3 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors rounded-full font-label-lg text-label-lg" href="#">
+<span class="material-symbols-outlined">schedule</span>
+                Recent
+            </a>
+<a class="flex items-center gap-3 text-on-surface-variant dark:text-outline-variant mx-2 px-4 py-3 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors rounded-full font-label-lg text-label-lg" href="#">
+<span class="material-symbols-outlined">star</span>
+                Starred
+            </a>
+<a class="flex items-center gap-3 text-on-surface-variant dark:text-outline-variant mx-2 px-4 py-3 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors rounded-full font-label-lg text-label-lg" href="#">
+<span class="material-symbols-outlined">delete</span>
+                Trash
+            </a>
+</nav>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-grow w-full max-w-screen-xl mx-auto px-margin_mobile md:px-margin_desktop py-8 md:py-12 flex flex-col gap-lg">
+<!-- Header area for Mobile (suppressed TopAppBar per intent, using custom contextual header) -->
+<header class="md:hidden flex items-center justify-between mb-2">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-on-background">Profile</h1>
+</header>
+<header class="hidden md:block mb-2">
+<h1 class="font-headline-lg text-headline-lg text-on-background">Profile</h1>
+</header>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+<!-- Profile Overview (Bento Grid Style) -->
+<section class="md:col-span-5 flex flex-col gap-6">
+<!-- User Card -->
+<div class="bg-surface-container-lowest border border-surface-variant rounded-xl p-8 flex flex-col items-center justify-center text-center shadow-[0_4px_20px_rgba(27,67,50,0.04)] hover:shadow-[0_4px_20px_rgba(27,67,50,0.08)] transition-shadow">
+<img alt="Rahul Sharma Avatar" class="w-24 h-24 rounded-full object-cover mb-4 ring-4 ring-surface-container" data-alt="A professional headshot of a young man named Rahul Sharma, smiling slightly, set against a soft, out-of-focus natural background, illuminated by gentle, warm daylight to fit a modern, welcoming UI." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC8h14Y2EI2tgnuDaKzVa7EMlUDsl3Qh5P_LcDNFcXGuodv1MdQtL371escO8taakCiimC_lr_CmOOV2VlS1LLTpFSMVoXT5IrDZuwhtAyQQjuxavaSXGcrBtYnsTy53cyYPH671Gl521A0Z49wM2BqBHoCZ3xLMBlp2B5NsLaPBlvi0h2AvbSVhZamtTAhzV1G0VBZficbSK1DgpPuIwPFTBY1UjsbgtqbS_WU2R9AahCV5mnJaSBGQwThIzB47sTAPa7SWl9gkqm5"/>
+<h2 class="font-headline-md text-headline-md text-on-background">Rahul Sharma</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">rahul.s@college.edu</p>
+<div class="mt-6 flex gap-2">
+<span class="bg-primary-container text-on-primary-container font-label-sm text-label-sm px-3 py-1 rounded-full flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">school</span> Scholar</span>
+</div>
+</div>
+<!-- Drive Connection Card -->
+<div class="bg-surface-container-lowest border border-surface-variant rounded-xl p-6 shadow-[0_4px_20px_rgba(27,67,50,0.04)] hover:shadow-[0_4px_20px_rgba(27,67,50,0.08)] transition-shadow">
+<div class="flex items-center gap-3 mb-4">
+<span class="material-symbols-outlined text-secondary text-[28px]">folder_managed</span>
+<h3 class="font-label-lg text-label-lg text-on-background">Storage Connection</h3>
+</div>
+<div class="bg-surface-container-low p-4 rounded-lg flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant">cloud</span>
+<div class="flex-grow overflow-hidden">
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-1">Active Sync Path</p>
+<p class="font-body-md text-body-md text-on-background truncate font-medium">Google Drive <span class="text-outline">›</span> Quire-Notes</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Settings List -->
+<section class="md:col-span-7 flex flex-col gap-4">
+<h3 class="font-label-lg text-label-lg text-on-surface-variant uppercase tracking-wider mb-2 pl-2">Preferences</h3>
+<div class="bg-surface-container-lowest border border-surface-variant rounded-xl shadow-[0_4px_20px_rgba(27,67,50,0.04)] divide-y divide-surface-variant overflow-hidden">
+<!-- Dark Mode Toggle -->
+<div class="p-4 md:p-6 flex items-center justify-between hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">dark_mode</span>
+</div>
+<div>
+<p class="font-label-lg text-label-lg text-on-background">Dark Mode</p>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mt-0.5">Adjust interface appearance</p>
+</div>
+</div>
+<button aria-pressed="false" class="w-12 h-6 rounded-full bg-surface-variant relative focus:outline-none focus:ring-2 focus:ring-primary-container">
+<span class="absolute left-1 top-1 w-4 h-4 rounded-full bg-on-surface-variant transition-transform"></span>
+</button>
+</div>
+<!-- Storage -->
+<a class="p-4 md:p-6 flex items-center justify-between hover:bg-surface-container-low transition-colors group" href="#">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">storage</span>
+</div>
+<div>
+<p class="font-label-lg text-label-lg text-on-background">Storage</p>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mt-0.5">2.4 GB used of 15 GB</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-on-background transition-colors">chevron_right</span>
+</a>
+<!-- Drive Permissions -->
+<a class="p-4 md:p-6 flex items-center justify-between hover:bg-surface-container-low transition-colors group" href="#">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">key</span>
+</div>
+<div>
+<p class="font-label-lg text-label-lg text-on-background">Drive Permissions</p>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mt-0.5">Manage access to Quire-Notes</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-on-background transition-colors">chevron_right</span>
+</a>
+<!-- Clear Cache -->
+<button class="w-full text-left p-4 md:p-6 flex items-center justify-between hover:bg-surface-container-low transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">cleaning_services</span>
+</div>
+<div>
+<p class="font-label-lg text-label-lg text-on-background">Clear Cache</p>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mt-0.5">Free up local space (142 MB)</p>
+</div>
+</div>
+</button>
+</div>
+<!-- Sign Out -->
+<div class="mt-8 flex justify-between items-center px-2">
+<button class="flex items-center gap-2 text-error hover:text-on-error-container font-label-lg text-label-lg transition-colors py-2 px-4 rounded-full hover:bg-error-container">
+<span class="material-symbols-outlined">logout</span>
+                        Sign Out
+                    </button>
+<span class="font-label-sm text-label-sm text-outline">Version 1.0.2</span>
+</div>
+</section>
+</div>
+</main>
+<!-- BottomNavBar (Mobile) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-4 pt-2 bg-surface-container dark:bg-inverse-surface shadow-[0_-4px_20px_rgba(27,67,50,0.08)] rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-5 py-1 hover:text-primary dark:hover:text-primary-fixed active:scale-90 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-label-sm text-label-sm mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-5 py-1 hover:text-primary dark:hover:text-primary-fixed active:scale-90 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined">search</span>
+<span class="font-label-sm text-label-sm mt-1">Search</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-5 py-1 hover:text-primary dark:hover:text-primary-fixed active:scale-90 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined">cloud_off</span>
+<span class="font-label-sm text-label-sm mt-1">Offline</span>
+</a>
+<!-- Active State for Profile -->
+<a class="flex flex-col items-center justify-center bg-secondary-container dark:bg-on-primary-container text-on-secondary-container dark:text-primary-container rounded-full px-5 py-1 active:scale-90 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined filled">person</span>
+<span class="font-label-sm text-label-sm mt-1 font-semibold">Profile</span>
+</a>
+</nav>
+</body></html>

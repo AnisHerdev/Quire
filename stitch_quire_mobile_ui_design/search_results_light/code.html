@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Academic Sanctuary - Search</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-container": "#75b393",
+                        "tertiary-fixed-dim": "#95d4b3",
+                        "primary-fixed": "#c1ecd4",
+                        "tertiary-fixed": "#b1f0ce",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-on-surface": "#f2f1ec",
+                        "on-surface-variant": "#414844",
+                        "surface-tint": "#3f6653",
+                        "outline": "#717973",
+                        "on-primary-fixed": "#002114",
+                        "on-background": "#1b1c19",
+                        "primary": "#012d1d",
+                        "secondary-fixed": "#ffdf9f",
+                        "primary-fixed-dim": "#a5d0b9",
+                        "inverse-primary": "#a5d0b9",
+                        "on-error": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "surface-variant": "#e3e3de",
+                        "on-error-container": "#93000a",
+                        "surface": "#faf9f4",
+                        "tertiary-container": "#00452e",
+                        "secondary-fixed-dim": "#eec058",
+                        "outline-variant": "#c1c8c2",
+                        "background": "#faf9f4",
+                        "surface-container-highest": "#e3e3de",
+                        "surface-container-high": "#e9e8e3",
+                        "secondary": "#795900",
+                        "surface-container": "#efeee9",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed-variant": "#274e3d",
+                        "secondary-container": "#fece65",
+                        "on-secondary-fixed-variant": "#5b4300",
+                        "primary-container": "#1b4332",
+                        "on-primary": "#ffffff",
+                        "inverse-surface": "#30312e",
+                        "on-surface": "#1b1c19",
+                        "on-secondary-fixed": "#261a00",
+                        "surface-dim": "#dbdad5",
+                        "on-secondary-container": "#755700",
+                        "tertiary": "#002d1c",
+                        "error-container": "#ffdad6",
+                        "surface-container-low": "#f5f4ef",
+                        "on-tertiary-fixed": "#002114",
+                        "on-primary-container": "#86af99",
+                        "on-tertiary-fixed-variant": "#0e5138",
+                        "surface-bright": "#faf9f4"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "12px",
+                        "lg": "48px",
+                        "xl": "64px",
+                        "base": "8px",
+                        "md": "24px",
+                        "margin_desktop": "40px",
+                        "gutter": "24px",
+                        "xs": "4px",
+                        "margin_mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "headline-lg-mobile": ["Source Serif 4"],
+                        "headline-md": ["Source Serif 4"],
+                        "display-lg": ["Source Serif 4"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "headline-lg": ["Source Serif 4"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for horizontal chips */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen flex flex-col md:flex-row antialiased">
+<!-- NavigationDrawer (Desktop) -->
+<nav aria-label="Main Navigation" class="hidden md:flex flex-col bg-surface h-full w-80 rounded-r-xl shadow-xl z-10 shrink-0 border-r border-outline-variant/30 sticky top-0 h-screen">
+<!-- Drawer Header -->
+<div class="px-6 py-8 flex flex-col items-start gap-4 border-b border-surface-variant">
+<div class="w-16 h-16 rounded-full overflow-hidden bg-primary-container flex items-center justify-center shrink-0">
+<img alt="User Avatar" class="w-full h-full object-cover" data-alt="A sophisticated close-up portrait of an academic individual in a softly lit, minimalist study environment. The lighting is bright and warm, matching a modern light-mode interface. Soft focus background implies rows of books, embodying a calm, disciplined scholarly atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBUP7teqa8USfwuk723hYiSNhZcHvCewrrMh0SS2Q0YHkzTyy8RsOYcU3OIZU0HdxjOry_V85zNAPL9_bXY_PWN_s94gyqG6-RdvrBUoB3PPVFtMcXY3yNDwaIuBiE5OD6IMfZefv_9rpPJSTGaQsAeiOAYxYKxzzUGvEVbkXpkFEikrmIBYnbY6bL3lpoPhs4iJ9qSrbe8yLt-ss1-OibYIbMf2CN5WcQtdzGARatN9kEMnsk-uRkjGTeA9jK4-DKtx6i3V5RHwadR"/>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-md text-headline-md text-primary tracking-tight">Academic Sanctuary</span>
+<span class="font-body-md text-body-md text-on-surface-variant mt-1">scholar@quire.edu</span>
+<span class="font-label-sm text-label-sm text-secondary-container mt-0.5 uppercase tracking-wider font-semibold">Premium Member</span>
+</div>
+</div>
+<!-- Drawer Links -->
+<div class="flex flex-col py-6 gap-2 flex-grow overflow-y-auto">
+<a class="text-on-surface-variant mx-2 px-4 py-3 flex items-center gap-3 hover:bg-surface-container-high transition-colors rounded-full font-body-md text-body-md active:opacity-80 transition-opacity" href="#">
+<span class="material-symbols-outlined" data-icon="book">book</span>
+<span>Library</span>
+</a>
+<a class="text-on-surface-variant mx-2 px-4 py-3 flex items-center gap-3 hover:bg-surface-container-high transition-colors rounded-full font-body-md text-body-md active:opacity-80 transition-opacity" href="#">
+<span class="material-symbols-outlined" data-icon="schedule">schedule</span>
+<span>Recent</span>
+</a>
+<a class="text-on-surface-variant mx-2 px-4 py-3 flex items-center gap-3 hover:bg-surface-container-high transition-colors rounded-full font-body-md text-body-md active:opacity-80 transition-opacity" href="#">
+<span class="material-symbols-outlined" data-icon="star">star</span>
+<span>Starred</span>
+</a>
+<a class="text-on-surface-variant mx-2 px-4 py-3 flex items-center gap-3 hover:bg-surface-container-high transition-colors rounded-full font-body-md text-body-md active:opacity-80 transition-opacity" href="#">
+<span class="material-symbols-outlined" data-icon="delete">delete</span>
+<span>Trash</span>
+</a>
+</div>
+</nav>
+<!-- TopAppBar (Mobile) -->
+<header aria-label="Top Bar" class="md:hidden flex justify-between items-center px-margin_mobile h-16 w-full bg-surface text-primary font-headline-md text-headline-md docked full-width top-0 z-20 sticky border-b border-surface-variant">
+<div class="w-8 h-8 rounded-full overflow-hidden bg-primary-container flex items-center justify-center shrink-0">
+<img alt="User Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDbfA7v6DyUL6Sen8gVO0OGp5dVQzr-qdFT1syqT-cbby9snoiHqbin9VxbeCW0WHLrWar6KNp6ZRpR91_8dURJ346uWXIz1aw80RRev7peeh83Znq9xqG3IzcOQBQ7bnjVt3DEBdTrnnx7pZx4XNJk-lcarBXCJrRLyVbtOF87rVQS4ofba9YcLyFjMOvgZxSOnkawOv9Ry5048c48PPG2uM2jaLDV5zhKPQOV9pVpX6qI6GJWn2XqK32DULh3v6SGwy34NqjcNqoV"/>
+</div>
+<span class="font-headline-md text-headline-md text-primary font-extrabold tracking-tight">Quire</span>
+<button aria-label="settings" class="text-on-surface-variant hover:bg-surface-container transition-colors active:scale-95 transition-transform p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col min-w-0 pb-24 md:pb-0">
+<div class="max-w-screen-xl mx-auto w-full px-margin_mobile md:px-margin_desktop py-md md:py-lg flex flex-col gap-lg">
+<!-- Search Header & Input Area -->
+<section aria-label="Search Input Area" class="flex flex-col gap-6">
+<div class="flex flex-col gap-2">
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary">Explore Sanctuary</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Deep search across your notes, documents, and concepts.</p>
+</div>
+<!-- Search Bar -->
+<div class="relative w-full group">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline-variant group-focus-within:text-secondary transition-colors" data-icon="search">search</span>
+</div>
+<input autofocus="" class="w-full pl-12 pr-4 py-4 rounded-lg bg-surface border border-outline-variant focus:border-secondary focus:ring-2 focus:ring-secondary/20 font-body-lg text-body-lg text-on-surface placeholder:text-outline shadow-sm transition-all outline-none" placeholder="Search concepts, titles, or contents..." type="text" value="Binary trees"/>
+<button aria-label="Clear search" class="absolute inset-y-0 right-0 pr-4 flex items-center text-outline hover:text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</div>
+<!-- Filter Chips -->
+<div class="flex items-center gap-3 overflow-x-auto hide-scrollbar pb-2 pt-1 -mx-margin_mobile px-margin_mobile md:mx-0 md:px-0">
+<button class="shrink-0 px-4 py-1.5 rounded-full bg-secondary text-on-secondary font-label-lg text-label-lg transition-colors border border-transparent shadow-sm">All</button>
+<button class="shrink-0 px-4 py-1.5 rounded-full bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container font-label-lg text-label-lg transition-colors flex items-center gap-2">
+<span aria-hidden="true" class="w-2 h-2 rounded-full bg-error"></span>
+                        PDF
+                    </button>
+<button class="shrink-0 px-4 py-1.5 rounded-full bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container font-label-lg text-label-lg transition-colors flex items-center gap-2">
+<span aria-hidden="true" class="w-2 h-2 rounded-full bg-secondary-container"></span>
+                        PPT
+                    </button>
+<button class="shrink-0 px-4 py-1.5 rounded-full bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container font-label-lg text-label-lg transition-colors flex items-center gap-2">
+<span aria-hidden="true" class="w-2 h-2 rounded-full bg-primary-container"></span>
+                        DOCX
+                    </button>
+<button class="shrink-0 px-4 py-1.5 rounded-full bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container font-label-lg text-label-lg transition-colors flex items-center gap-2">
+<span aria-hidden="true" class="w-2 h-2 rounded-full bg-outline"></span>
+                        TXT
+                    </button>
+</div>
+</section>
+<!-- Search Results Area -->
+<section aria-label="Search Results" class="flex flex-col gap-4">
+<h2 class="font-label-lg text-label-lg text-outline uppercase tracking-wider mb-2">3 Results found</h2>
+<!-- Result Card 1 -->
+<article class="bg-surface rounded-xl border border-surface-variant p-5 shadow-[0_4px_20px_rgba(27,67,50,0.04)] hover:shadow-[0_4px_20px_rgba(27,67,50,0.08)] transition-all cursor-pointer group flex flex-col md:flex-row gap-4 md:items-start relative overflow-hidden">
+<!-- High match indicator line -->
+<div aria-hidden="true" class="absolute left-0 top-0 bottom-0 w-1 bg-secondary opacity-80"></div>
+<div class="w-10 h-10 rounded-lg bg-error/10 flex items-center justify-center shrink-0 text-error">
+<span class="material-symbols-outlined" data-icon="picture_as_pdf">picture_as_pdf</span>
+</div>
+<div class="flex-1 flex flex-col min-w-0">
+<div class="flex items-center justify-between gap-2 mb-1">
+<h3 class="font-headline-md text-headline-md text-on-surface truncate group-hover:text-primary transition-colors">IA1 - Binary Trees.pdf</h3>
+<span class="px-2.5 py-0.5 rounded-md bg-secondary-container/20 text-on-secondary-container font-label-sm text-label-sm whitespace-nowrap border border-secondary-container/30">High Match</span>
+</div>
+<div class="flex items-center gap-3 text-outline font-label-sm text-label-sm mb-3">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]" data-icon="folder">folder</span> Semester 1</span>
+<span>•</span>
+<span>Updated 2 days ago</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed line-clamp-2">
+                            ...understanding data structures is crucial. When analyzing the computational complexity, traversing a <strong class="text-secondary font-semibold bg-secondary/10 px-1 rounded-sm">binary tree</strong> involves visiting each node exactly once, which results in a time complexity of O(n) for a full traversal...
+                        </p>
+</div>
+</article>
+<!-- Result Card 2 -->
+<article class="bg-surface rounded-xl border border-surface-variant p-5 shadow-[0_4px_20px_rgba(27,67,50,0.04)] hover:shadow-[0_4px_20px_rgba(27,67,50,0.08)] transition-all cursor-pointer group flex flex-col md:flex-row gap-4 md:items-start">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center shrink-0 text-outline">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+</div>
+<div class="flex-1 flex flex-col min-w-0">
+<div class="flex items-center justify-between gap-2 mb-1">
+<h3 class="font-headline-md text-headline-md text-on-surface truncate group-hover:text-primary transition-colors">Lecture 4 Notes: Trees &amp; Graphs</h3>
+<span class="px-2.5 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm whitespace-nowrap">Partial</span>
+</div>
+<div class="flex items-center gap-3 text-outline font-label-sm text-label-sm mb-3">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]" data-icon="folder">folder</span> Data Structures 101</span>
+<span>•</span>
+<span>Updated last week</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed line-clamp-2">
+                            ...unlike arrays, <strong class="text-secondary font-semibold bg-secondary/10 px-1 rounded-sm">binary trees</strong> provide a hierarchical structure. A balanced <strong class="text-secondary font-semibold bg-secondary/10 px-1 rounded-sm">binary tree</strong> ensures that the depth is kept to a minimum, allowing for O(log n) search operations in the average case scenario...
+                        </p>
+</div>
+</article>
+<!-- Result Card 3 -->
+<article class="bg-surface rounded-xl border border-surface-variant p-5 shadow-[0_4px_20px_rgba(27,67,50,0.04)] hover:shadow-[0_4px_20px_rgba(27,67,50,0.08)] transition-all cursor-pointer group flex flex-col md:flex-row gap-4 md:items-start">
+<div class="w-10 h-10 rounded-lg bg-primary-container/20 flex items-center justify-center shrink-0 text-primary">
+<span class="material-symbols-outlined" data-icon="format_quote">format_quote</span>
+</div>
+<div class="flex-1 flex flex-col min-w-0">
+<div class="flex items-center justify-between gap-2 mb-1">
+<h3 class="font-headline-md text-headline-md text-on-surface truncate group-hover:text-primary transition-colors">Concept: AVL Trees</h3>
+<span class="px-2.5 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm whitespace-nowrap">Mention</span>
+</div>
+<div class="flex items-center gap-3 text-outline font-label-sm text-label-sm mb-3">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]" data-icon="folder">folder</span> Study Guides</span>
+<span>•</span>
+<span>Updated 1 month ago</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed line-clamp-2">
+                            ...An AVL tree is a self-balancing <strong class="text-secondary font-semibold bg-secondary/10 px-1 rounded-sm">binary search tree</strong>. It was the first such data structure to be invented. In an AVL tree, the heights of the two child subtrees of any node differ by at most one...
+                        </p>
+</div>
+</article>
+</section>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav aria-label="Bottom Navigation" class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-4 pt-2 bg-surface-container shadow-[0_-4px_20px_rgba(27,67,50,0.08)] rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-1 hover:text-primary active:scale-90 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="home">home</span>
+<span class="font-label-sm text-label-sm">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-full px-5 py-1 active:scale-90 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined fill mb-1" data-icon="search">search</span>
+<span class="font-label-sm text-label-sm font-semibold">Search</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-1 hover:text-primary active:scale-90 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="cloud_off">cloud_off</span>
+<span class="font-label-sm text-label-sm">Offline</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-5 py-1 hover:text-primary active:scale-90 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="person">person</span>
+<span class="font-label-sm text-label-sm">Profile</span>
+</a>
+</nav>
+</body></html>

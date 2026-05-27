@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Quire - Home</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-container": "#75b393",
+                        "tertiary-fixed-dim": "#95d4b3",
+                        "primary-fixed": "#c1ecd4",
+                        "tertiary-fixed": "#b1f0ce",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-on-surface": "#f2f1ec",
+                        "on-surface-variant": "#414844",
+                        "surface-tint": "#3f6653",
+                        "outline": "#717973",
+                        "on-primary-fixed": "#002114",
+                        "on-background": "#1b1c19",
+                        "primary": "#012d1d",
+                        "secondary-fixed": "#ffdf9f",
+                        "primary-fixed-dim": "#a5d0b9",
+                        "inverse-primary": "#a5d0b9",
+                        "on-error": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "surface-variant": "#e3e3de",
+                        "on-error-container": "#93000a",
+                        "surface": "#faf9f4",
+                        "tertiary-container": "#00452e",
+                        "secondary-fixed-dim": "#eec058",
+                        "outline-variant": "#c1c8c2",
+                        "background": "#faf9f4",
+                        "surface-container-highest": "#e3e3de",
+                        "surface-container-high": "#e9e8e3",
+                        "secondary": "#795900",
+                        "surface-container": "#efeee9",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed-variant": "#274e3d",
+                        "secondary-container": "#fece65",
+                        "on-secondary-fixed-variant": "#5b4300",
+                        "primary-container": "#1b4332",
+                        "on-primary": "#ffffff",
+                        "inverse-surface": "#30312e",
+                        "on-surface": "#1b1c19",
+                        "on-secondary-fixed": "#261a00",
+                        "surface-dim": "#dbdad5",
+                        "on-secondary-container": "#755700",
+                        "tertiary": "#002d1c",
+                        "error-container": "#ffdad6",
+                        "surface-container-low": "#f5f4ef",
+                        "on-tertiary-fixed": "#002114",
+                        "on-primary-container": "#86af99",
+                        "on-tertiary-fixed-variant": "#0e5138",
+                        "surface-bright": "#faf9f4"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "12px",
+                        "lg": "48px",
+                        "xl": "64px",
+                        "base": "8px",
+                        "md": "24px",
+                        "margin_desktop": "40px",
+                        "gutter": "24px",
+                        "xs": "4px",
+                        "margin_mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "headline-lg-mobile": ["Source Serif 4"],
+                        "headline-md": ["Source Serif 4"],
+                        "display-lg": ["Source Serif 4"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "headline-lg": ["Source Serif 4"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #faf9f4; }
+        .soft-shadow { box-shadow: 0 4px 20px rgba(27, 67, 50, 0.08); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-background min-h-screen pb-24 lg:pb-0 lg:pl-80 flex flex-col antialiased selection:bg-secondary-container selection:text-on-secondary-container">
+<!-- Top App Bar (Mobile) / Also acts as header for content area -->
+<header class="flex justify-between items-center px-margin_mobile md:px-margin_desktop h-16 w-full bg-surface dark:bg-surface-dim lg:hidden sticky top-0 z-40">
+<div class="flex items-center gap-2">
+<span class="font-headline-md text-headline-md text-primary dark:text-primary-fixed-dim">Quire</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant dark:text-outline-variant hover:bg-surface-container dark:hover:bg-surface-container-highest transition-colors active:scale-95 transition-transform p-2 rounded-full">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden bg-surface-container-high border border-outline-variant">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A small, circular profile picture of a young professional wearing glasses, against a soft, well-lit studio background. The style is modern, bright, and polished, fitting a high-end academic application. Warm ambient lighting enhances the approachability." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBcoDbktRn_nfgFwWfgt7grfH9QiJJnCYSCLZTZ2-5X1NamLyALSGL5aJyJxaeTJOLuL0hgfuC9yiQreArLKr7Igg3AYwwXX69xZEsG2je5_RvrEOgxWd012CPilxFtRzwlzfpUqoKYY__aCDg_f60hjOopYo7sikCq_CobqPySgkkS7xs7qc6G8CU3oDCpO9XKRxcfbkQWrR0GwixPJf4TRIPTyasiX1Qt3bw6cRCNgKWC06nvP9Wz7fB3XrCaOQssOG7xzikBwxcD"/>
+</div>
+</div>
+</header>
+<!-- Side Navigation (Desktop) -->
+<aside class="hidden lg:flex flex-col py-6 gap-2 h-full w-80 rounded-r-xl bg-surface dark:bg-surface-dim shadow-xl fixed top-0 left-0 z-50">
+<!-- Header Profile -->
+<div class="flex flex-col items-start px-6 pb-6 border-b border-surface-container-high">
+<div class="w-12 h-12 rounded-full overflow-hidden bg-surface-container-high mb-4">
+<img alt="User Avatar" class="w-full h-full object-cover" data-alt="A small, circular profile picture of a young professional wearing glasses, against a soft, well-lit studio background. The style is modern, bright, and polished, fitting a high-end academic application. Warm ambient lighting enhances the approachability." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFz8LznFoP3cv6gcXd3ReJ_88JcEOcwl1QyClf2jA_TpSWXOh1XdRGRGkvM5NsUkzYtmVvF9BsM2SU1jlDDG9UJOi37EaPfAhFVkO3DOyNh2kZT781CRcWdDHj_fwhBkh6Reh_I9guH8cOog6e5P2Bp9-foz5jig9HZLgcmFhqWWPgel0pGa_uVKdHzB9yue-2K7JX9B9aK5UhWYjifJ7u8FHvXgxeXxjssUcvF1kO7rr9f3FP_kuUxv1Cuig0rNHvNyAEceVYj82a"/>
+</div>
+<h2 class="font-headline-md text-headline-md text-primary dark:text-primary-fixed-dim">Academic Sanctuary</h2>
+<p class="font-body-md text-body-md text-on-surface-variant dark:text-outline-variant">scholar@quire.edu</p>
+<span class="font-label-sm text-label-sm text-secondary bg-secondary-container px-2 py-1 rounded-md mt-2">Premium Member</span>
+</div>
+<!-- Navigation Items -->
+<nav class="flex-1 overflow-y-auto pt-4">
+<a class="flex items-center gap-3 bg-primary-container dark:bg-tertiary-container text-on-primary-container dark:text-tertiary-fixed rounded-full mx-2 px-4 py-3 active:opacity-80 transition-opacity" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">book</span>
+<span class="font-label-lg text-label-lg">Library</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant dark:text-outline-variant mx-2 px-4 py-3 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors active:opacity-80 transition-opacity" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">schedule</span>
+<span class="font-label-lg text-label-lg">Recent</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant dark:text-outline-variant mx-2 px-4 py-3 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors active:opacity-80 transition-opacity" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">star</span>
+<span class="font-label-lg text-label-lg">Starred</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant dark:text-outline-variant mx-2 px-4 py-3 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors active:opacity-80 transition-opacity" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">delete</span>
+<span class="font-label-lg text-label-lg">Trash</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 px-margin_mobile md:px-margin_desktop pt-md pb-xl max-w-7xl mx-auto w-full">
+<!-- Large Search Bar -->
+<div class="mb-lg relative w-full group">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline group-focus-within:text-secondary" style="font-variation-settings: 'FILL' 0;">search</span>
+</div>
+<input class="w-full bg-surface-container-low border-0 rounded-xl py-4 pl-12 pr-4 font-body-lg text-body-lg text-on-surface placeholder:text-outline-variant focus:ring-2 focus:ring-secondary focus:bg-surface transition-all duration-300 soft-shadow hover:shadow-md outline-none" placeholder="Search your notes, texts, or authors..." type="text"/>
+</div>
+<!-- Section: Your Semesters -->
+<section class="mb-lg">
+<div class="flex justify-between items-end mb-md">
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-background">Your Semesters</h2>
+<button class="font-label-lg text-label-lg text-primary hover:text-primary-container transition-colors flex items-center gap-1">
+                    View All <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+<!-- Bento-style Grid for Folders -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-gutter">
+<!-- Folder Card: Semester 1 -->
+<button class="group text-left bg-surface rounded-xl p-6 border border-surface-variant soft-shadow hover:shadow-lg transition-all duration-300 relative overflow-hidden flex flex-col justify-between h-48 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary-fixed-dim opacity-10 rounded-full blur-2xl -mr-10 -mt-10 group-hover:bg-primary-fixed transition-colors duration-500"></div>
+<div class="flex justify-between items-start z-10 relative">
+<div class="w-12 h-12 rounded-lg bg-surface-container flex items-center justify-center text-primary-container group-hover:bg-primary-container group-hover:text-on-primary transition-colors duration-300">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">folder</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0 duration-300">chevron_right</span>
+</div>
+<div class="z-10 relative mt-auto">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-1">Semester 1</h3>
+<p class="font-body-md text-body-md text-outline">12 items</p>
+</div>
+</button>
+<!-- Folder Card: Semester 2 -->
+<button class="group text-left bg-surface rounded-xl p-6 border border-surface-variant soft-shadow hover:shadow-lg transition-all duration-300 relative overflow-hidden flex flex-col justify-between h-48 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background">
+<div class="absolute top-0 right-0 w-32 h-32 bg-secondary-fixed-dim opacity-10 rounded-full blur-2xl -mr-10 -mt-10 group-hover:bg-secondary-container transition-colors duration-500"></div>
+<div class="flex justify-between items-start z-10 relative">
+<div class="w-12 h-12 rounded-lg bg-surface-container flex items-center justify-center text-primary-container group-hover:bg-primary-container group-hover:text-on-primary transition-colors duration-300">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">folder</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0 duration-300">chevron_right</span>
+</div>
+<div class="z-10 relative mt-auto">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-1">Semester 2</h3>
+<p class="font-body-md text-body-md text-outline">8 items</p>
+</div>
+</button>
+<!-- Folder Card: Certificates -->
+<button class="group text-left bg-surface rounded-xl p-6 border border-surface-variant soft-shadow hover:shadow-lg transition-all duration-300 relative overflow-hidden flex flex-col justify-between h-48 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background">
+<div class="absolute top-0 right-0 w-32 h-32 bg-tertiary-fixed-dim opacity-10 rounded-full blur-2xl -mr-10 -mt-10 group-hover:bg-tertiary-fixed transition-colors duration-500"></div>
+<div class="flex justify-between items-start z-10 relative">
+<div class="w-12 h-12 rounded-lg bg-surface-container flex items-center justify-center text-primary-container group-hover:bg-primary-container group-hover:text-on-primary transition-colors duration-300">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">folder</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0 duration-300">chevron_right</span>
+</div>
+<div class="z-10 relative mt-auto">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-1">Certificates</h3>
+<p class="font-body-md text-body-md text-outline">3 items</p>
+</div>
+</button>
+</div>
+</section>
+<!-- Floating Action Button (FAB) - Visible mainly on mobile or bottom right on desktop -->
+<button class="fixed bottom-24 md:bottom-8 right-margin_mobile md:right-8 w-14 h-14 bg-secondary-container text-on-secondary-container rounded-2xl flex items-center justify-center shadow-lg hover:shadow-xl hover:-translate-y-1 active:scale-95 transition-all duration-200 z-50">
+<span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 0;">add</span>
+</button>
+</main>
+<!-- Bottom Nav Bar (Mobile) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-4 pt-2 bg-surface-container dark:bg-inverse-surface shadow-[0_-4px_20px_rgba(27,67,50,0.08)] rounded-t-xl lg:hidden">
+<button class="flex flex-col items-center justify-center bg-secondary-container dark:bg-on-primary-container text-on-secondary-container dark:text-primary-container rounded-full px-5 py-1 active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="font-label-sm text-label-sm mt-1">Home</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-5 py-1 hover:text-primary dark:hover:text-primary-fixed active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">search</span>
+<span class="font-label-sm text-label-sm mt-1">Search</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-5 py-1 hover:text-primary dark:hover:text-primary-fixed active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">cloud_off</span>
+<span class="font-label-sm text-label-sm mt-1">Offline</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-5 py-1 hover:text-primary dark:hover:text-primary-fixed active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">person</span>
+<span class="font-label-sm text-label-sm mt-1">Profile</span>
+</button>
+</nav>
+</body></html>
