@@ -345,7 +345,7 @@ class _FileListScreenState extends ConsumerState<FileListScreen> {
         if (_isSelectionMode) {
           _toggleSelection(fileId);
         } else {
-          // Open PDF logic
+          context.push('/pdf-viewer/$fileId');
         }
       },
       borderRadius: BorderRadius.circular(16),

@@ -1,8 +1,102 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
-class PdfViewerScreen extends StatelessWidget {
-  const PdfViewerScreen({super.key});
+import '../providers/database_provider.dart';
+import '../providers/drive_provider.dart';
+
+class PdfViewerScreen extends ConsumerStatefulWidget {
+  final String fileId;
+  const PdfViewerScreen({super.key, required this.fileId});
+
+  @override
+  ConsumerState<PdfViewerScreen> createState() => _PdfViewerScreenState();
+}
+
+class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
+  final PdfViewerController _pdfViewerController = PdfViewerController();
+  final TextEditingController _searchController = TextEditingController();
+  
+  PdfTextSearchResult _searchResult = PdfTextSearchResult();
+  Uint8List? _pdfBytes;
+  bool _isLoading = true;
+  String? _errorMessage;
+  
+  bool _isSearchMode = false;
+  bool _isDarkMode = false;
+  double _currentZoom = 1.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pdfViewerController.addListener(() {
+      if (mounted) {
+        setState(() {
+          _currentZoom = _pdfViewerController.zoomLevel;
+        });
+      }
+    });
+    _loadPdf();
+  }
+
+  @override
+  void dispose() {
+    _pdfViewerController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadPdf() async {
+    try {
+      final driveService = ref.read(driveServiceProvider);
+      final bytes = await driveService.getPdfBytes(widget.fileId);
+      if (mounted) {
+        setState(() {
+          _pdfBytes = bytes;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _performSearch(String query) {
+    if (query.isEmpty) {
+      _searchResult.removeListener(_onSearchChanged);
+      _searchResult.clear();
+      setState(() {});
+      return;
+    }
+    
+    // Clear previous listener
+    _searchResult.removeListener(_onSearchChanged);
+    
+    _searchResult = _pdfViewerController.searchText(query);
+    _searchResult.addListener(_onSearchChanged);
+    setState(() {});
+  }
+
+  void _onSearchChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _zoomIn() {
+    _pdfViewerController.zoomLevel = _currentZoom + 0.5;
+  }
+
+  void _zoomOut() {
+    _pdfViewerController.zoomLevel = (_currentZoom - 0.5).clamp(1.0, 5.0);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -10,10 +104,22 @@ class PdfViewerScreen extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
 
+    final database = ref.watch(databaseProvider);
+    final file = database.files[widget.fileId];
+    final fileName = file?.name ?? 'Unknown File';
+
+    // Matrix to invert colors for dark mode PDF rendering
+    const colorMatrix = <double>[
+      -1.0, 0.0, 0.0, 0.0, 255.0,
+      0.0, -1.0, 0.0, 0.0, 255.0,
+      0.0, 0.0, -1.0, 0.0, 255.0,
+      0.0, 0.0, 0.0, 1.0, 0.0,
+    ];
+
     return Scaffold(
-      backgroundColor: colorScheme.surfaceContainerLow,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: colorScheme.surfaceContainerLowest.withOpacity(0.8),
+        backgroundColor: colorScheme.surface.withValues(alpha: 0.95),
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.close, color: colorScheme.onSurfaceVariant),
@@ -21,126 +127,208 @@ class PdfViewerScreen extends StatelessWidget {
         ),
         title: Column(
           children: [
-            Text('IA1 - Binary Trees.pdf', style: textTheme.labelLarge?.copyWith(color: colorScheme.onSurface)),
-            Text('Page 1 of 12', style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
+            Text(fileName, style: textTheme.labelLarge?.copyWith(color: colorScheme.onSurface), maxLines: 1, overflow: TextOverflow.ellipsis),
+            if (_pdfBytes != null)
+              Text('PDF Document', style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
           ],
         ),
         centerTitle: true,
         actions: [
           IconButton(icon: Icon(Icons.ios_share, color: colorScheme.onSurfaceVariant), onPressed: () {}),
-          IconButton(icon: Icon(Icons.bookmark, color: colorScheme.onSurfaceVariant), onPressed: () {}),
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant),
+            onSelected: (value) {
+              if (value == 'dark_mode') {
+                setState(() {
+                  _isDarkMode = !_isDarkMode;
+                });
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'dark_mode',
+                child: Row(
+                  children: [
+                    Icon(_isDarkMode ? Icons.light_mode : Icons.dark_mode, size: 20),
+                    const SizedBox(width: 12),
+                    Text(_isDarkMode ? 'Light Mode' : 'Dark Mode'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'bookmark',
+                child: Row(
+                  children: [
+                    Icon(Icons.bookmark_border, size: 20),
+                    SizedBox(width: 12),
+                    Text('Bookmark File'),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
       body: Stack(
         children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-            child: Center(
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerLowest,
-                  borderRadius: BorderRadius.circular(4),
-                  boxShadow: [
-                    BoxShadow(color: colorScheme.primaryContainer.withOpacity(0.06), blurRadius: 20, offset: const Offset(0, 4)),
-                  ],
-                ),
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (_errorMessage != null)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('1. Structural Overview of Binary Search Trees', style: textTheme.headlineLarge?.copyWith(color: colorScheme.onSurface)),
-                    const SizedBox(height: 24),
-                    Container(width: 64, height: 4, color: colorScheme.primary.withOpacity(0.2)),
-                    const SizedBox(height: 24),
-                    Text(
-                      "In computer science, a binary search tree (BST), also called an ordered or sorted binary tree, is a rooted binary tree data structure with the key of each internal node being greater than all the keys in the respective node's left subtree and less than the ones in its right subtree.",
-                      style: textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      "The time complexity of operations on the binary search tree is directly proportional to the height of the tree. BSTs allow binary search for fast lookup, addition, and removal of data items.",
-                      style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-                    ),
-                    const SizedBox(height: 32),
-                    // Placeholder for diagram
-                    Container(
-                      height: 200,
-                      decoration: BoxDecoration(
-                        color: colorScheme.surface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.2)),
-                      ),
-                      child: Center(child: Icon(Icons.image, size: 48, color: colorScheme.outline)),
-                    ),
+                    Icon(Icons.error_outline, size: 48, color: colorScheme.error),
                     const SizedBox(height: 16),
-                    Center(child: Text('Figure 1.1: A standard unbalanced binary search tree representation.', style: textTheme.labelSmall?.copyWith(color: colorScheme.outline))),
-                    const SizedBox(height: 48),
-                    Divider(color: colorScheme.outlineVariant.withOpacity(0.2)),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('CS-301 Data Structures', style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
-                        Text('1', style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
-                      ],
-                    ),
+                    Text('Failed to load PDF', style: textTheme.titleLarge),
+                    const SizedBox(height: 8),
+                    Text(_errorMessage!, textAlign: TextAlign.center, style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
                   ],
                 ),
               ),
+            )
+          else if (_pdfBytes != null)
+            ColorFiltered(
+              colorFilter: _isDarkMode
+                  ? const ColorFilter.matrix(colorMatrix)
+                  : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
+              child: SfPdfViewer.memory(
+                _pdfBytes!,
+                controller: _pdfViewerController,
+                canShowScrollHead: false,
+                canShowScrollStatus: false,
+                pageSpacing: 8,
+              ),
             ),
-          ),
           
-          // Floating toolbar
-          Positioned(
-            bottom: 32,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withOpacity(0.95),
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: [
-                    BoxShadow(color: colorScheme.primaryContainer.withOpacity(0.12), blurRadius: 30, offset: const Offset(0, 8)),
-                  ],
-                  border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.4)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerLow.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        children: [
-                          IconButton(icon: const Icon(Icons.remove, size: 20), onPressed: () {}, color: colorScheme.onSurfaceVariant),
-                          const SizedBox(width: 8),
-                          Text('100%', style: textTheme.labelLarge?.copyWith(color: colorScheme.onSurfaceVariant)),
-                          const SizedBox(width: 8),
-                          IconButton(icon: const Icon(Icons.add, size: 20), onPressed: () {}, color: colorScheme.onSurfaceVariant),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(width: 1, height: 24, color: colorScheme.outlineVariant.withOpacity(0.5)),
-                    const SizedBox(width: 8),
-                    IconButton(icon: const Icon(Icons.search, size: 22), onPressed: () {}, color: colorScheme.onSurfaceVariant),
-                    const SizedBox(width: 8),
-                    Container(width: 1, height: 24, color: colorScheme.outlineVariant.withOpacity(0.5)),
-                    const SizedBox(width: 8),
-                    IconButton(icon: const Icon(Icons.dark_mode, size: 22), onPressed: () {}, color: colorScheme.onSurfaceVariant),
-                  ],
+          // Floating Bottom Toolbar
+          if (_pdfBytes != null)
+            Positioned(
+              bottom: 32,
+              left: 16,
+              right: 16,
+              child: Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.95),
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(color: colorScheme.primaryContainer.withValues(alpha: 0.12), blurRadius: 30, offset: const Offset(0, 8)),
+                    ],
+                    border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                  ),
+                  child: _isSearchMode ? _buildSearchBar(context) : _buildDefaultToolbar(context),
                 ),
               ),
             ),
-          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDefaultToolbar(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            children: [
+              IconButton(icon: const Icon(Icons.remove, size: 20), onPressed: _zoomOut, color: colorScheme.onSurfaceVariant),
+              const SizedBox(width: 8),
+              Text('${(_currentZoom * 100).toInt()}%', style: textTheme.labelLarge?.copyWith(color: colorScheme.onSurfaceVariant)),
+              const SizedBox(width: 8),
+              IconButton(icon: const Icon(Icons.add, size: 20), onPressed: _zoomIn, color: colorScheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Container(width: 1, height: 24, color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        const SizedBox(width: 16),
+        IconButton(
+          icon: const Icon(Icons.search, size: 22), 
+          color: colorScheme.onSurfaceVariant,
+          onPressed: () {
+            setState(() {
+              _isSearchMode = true;
+            });
+          }, 
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSearchBar(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _searchController,
+            autofocus: true,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Search...',
+              hintStyle: textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            onSubmitted: _performSearch,
+            onChanged: (val) {
+              if (val.isEmpty) {
+                _searchResult.clear();
+                setState(() {});
+              }
+            },
+          ),
+        ),
+        if (_searchResult.hasResult) ...[
+          Text(
+            '${_searchResult.currentInstanceIndex} of ${_searchResult.totalInstanceCount}',
+            style: textTheme.labelSmall?.copyWith(color: colorScheme.primary),
+          ),
+          IconButton(
+            icon: const Icon(Icons.keyboard_arrow_up),
+            onPressed: () {
+              _searchResult.previousInstance();
+              setState(() {});
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.keyboard_arrow_down),
+            onPressed: () {
+              _searchResult.nextInstance();
+              setState(() {});
+            },
+          ),
+        ],
+        Container(width: 1, height: 24, color: colorScheme.outlineVariant.withValues(alpha: 0.5), margin: const EdgeInsets.symmetric(horizontal: 4)),
+        IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            _searchResult.removeListener(_onSearchChanged);
+            _searchResult.clear();
+            _searchController.clear();
+            setState(() {
+              _isSearchMode = false;
+            });
+          },
+        ),
+      ],
     );
   }
 }

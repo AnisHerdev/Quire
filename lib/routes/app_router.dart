@@ -79,7 +79,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/pdf-viewer/:fileId',
-        builder: (context, state) => const PdfViewerScreen(),
+        builder: (context, state) {
+          final fileId = state.pathParameters['fileId']!;
+          return PdfViewerScreen(fileId: fileId);
+        },
       ),
       GoRoute(
         path: '/offline',

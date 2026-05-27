@@ -219,7 +219,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         if (_isSelectionMode) {
           _toggleSelection(fileId);
         } else {
-          // Open PDF logic (handled in next steps if needed)
+          context.push('/pdf-viewer/$fileId');
         }
       },
       borderRadius: BorderRadius.circular(16),

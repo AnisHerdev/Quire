@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:path_provider/path_provider.dart';
 // ignore: depend_on_referenced_packages
 import 'package:http/http.dart' as http;
 import '../models/note_file_model.dart';
@@ -195,6 +196,31 @@ class DriveService {
       return Uint8List.fromList(bytes);
     } catch (e) {
       throw Exception('Failed to download file: $e');
+    }
+  }
+
+  Future<Uint8List> getPdfBytes(String fileId) async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final cacheDir = Directory('${dir.path}/pdf_cache');
+      if (!await cacheDir.exists()) {
+        await cacheDir.create(recursive: true);
+      }
+      
+      final localFile = File('${cacheDir.path}/$fileId.pdf');
+      
+      if (await localFile.exists()) {
+        return await localFile.readAsBytes();
+      }
+
+      final bytes = await downloadFile(fileId);
+      
+      // Save to cache for next time
+      await localFile.writeAsBytes(bytes);
+      
+      return bytes;
+    } catch (e) {
+      throw Exception('Failed to load PDF: $e');
     }
   }
 }
