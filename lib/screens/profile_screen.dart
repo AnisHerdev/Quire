@@ -111,106 +111,63 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final themeMode = ref.watch(themeProvider);
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface, // changed from deprecated background
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Profile', style: textTheme.headlineMedium?.copyWith(color: colorScheme.onBackground)),
+              Text('Profile', style: textTheme.headlineMedium?.copyWith(color: colorScheme.onSurface)), // changed from deprecated onBackground
               const SizedBox(height: 24),
               
-              // Profile Overview Card
+              // 1. Compact Profile Overview Card
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(32),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceContainerLowest,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: colorScheme.surfaceVariant),
+                  border: Border.all(color: colorScheme.surfaceVariant), // Note: if using M3, might be surfaceContainerHighest
                   boxShadow: [
                     BoxShadow(color: colorScheme.primaryContainer.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 4)),
                   ],
                 ),
-                child: Column(
+                child: Row(
                   children: [
                     if (user?.photoUrl.isNotEmpty == true)
                       CircleAvatar(
-                        radius: 48,
+                        radius: 36,
                         backgroundImage: NetworkImage(user!.photoUrl),
                         backgroundColor: colorScheme.surfaceContainer,
                       )
                     else
                       CircleAvatar(
-                        radius: 48,
+                        radius: 36,
                         backgroundColor: colorScheme.surfaceContainer,
-                        child: Icon(Icons.person, size: 48, color: colorScheme.outline),
+                        child: Icon(Icons.person, size: 36, color: colorScheme.outline),
                       ),
-                    const SizedBox(height: 16),
-                    Text(user?.displayName ?? 'Scholar', style: textTheme.headlineMedium?.copyWith(color: colorScheme.onBackground)),
-                    const SizedBox(height: 4),
-                    Text(user?.email ?? 'Unknown Email', style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.school, size: 16, color: colorScheme.onPrimaryContainer),
-                          const SizedBox(width: 8),
-                          Text('Scholar', style: textTheme.labelSmall?.copyWith(color: colorScheme.onPrimaryContainer)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              
-              // Drive Connection Card
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerLowest,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: colorScheme.surfaceVariant),
-                  boxShadow: [
-                    BoxShadow(color: colorScheme.primaryContainer.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 4)),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.folder_shared, color: colorScheme.secondary, size: 28),
-                        const SizedBox(width: 12),
-                        Text('Storage Connection', style: textTheme.labelLarge?.copyWith(color: colorScheme.onBackground)),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.cloud, color: colorScheme.onSurfaceVariant),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          Text(user?.displayName ?? 'Scholar', style: textTheme.headlineSmall?.copyWith(color: colorScheme.onSurface, fontWeight: FontWeight.bold)), // changed from onBackground
+                          const SizedBox(height: 2),
+                          Text(user?.email ?? 'Unknown Email', style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text('Active Sync Path', style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
-                                const SizedBox(height: 4),
-                                Text('Google Drive › Quire-Notes', style: textTheme.bodyMedium?.copyWith(color: colorScheme.onBackground, fontWeight: FontWeight.w500)),
+                                Icon(Icons.school, size: 14, color: colorScheme.onPrimaryContainer),
+                                const SizedBox(width: 6),
+                                Text('Scholar', style: textTheme.labelSmall?.copyWith(color: colorScheme.onPrimaryContainer)),
                               ],
                             ),
                           ),
@@ -222,7 +179,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 32),
               
-              // Settings List
+              // 2. Preferences
               Text('PREFERENCES', style: textTheme.labelLarge?.copyWith(color: colorScheme.onSurfaceVariant)),
               const SizedBox(height: 8),
               Container(
@@ -248,22 +205,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     const Divider(height: 1),
                     _buildSettingsTile(
                       context,
-                      icon: Icons.storage,
-                      title: 'Storage',
-                      subtitle: _storageQuota,
-                      trailing: Icon(Icons.cloud_done, color: colorScheme.secondary),
-                    ),
-                    const Divider(height: 1),
-                    _buildSettingsTile(
-                      context,
-                      icon: Icons.key,
-                      title: 'Drive Permissions',
-                      subtitle: 'Manage access to Quire-Notes',
-                      trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
-                    ),
-                    const Divider(height: 1),
-                    _buildSettingsTile(
-                      context,
                       icon: Icons.cleaning_services,
                       title: 'Clear Cache',
                       subtitle: 'Free up local space ($_cacheSize)',
@@ -274,6 +215,84 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               
               const SizedBox(height: 32),
+
+              // 3. Storage Connection
+              Text('STORAGE', style: textTheme.labelLarge?.copyWith(color: colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colorScheme.surfaceVariant),
+                  boxShadow: [
+                    BoxShadow(color: colorScheme.primaryContainer.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 4)),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.folder_shared, color: colorScheme.secondary, size: 28),
+                        const SizedBox(width: 12),
+                        Text('Google Drive', style: textTheme.titleMedium?.copyWith(color: colorScheme.onSurface)), // changed from onBackground
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.cloud, color: colorScheme.onSurfaceVariant),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Usage', style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                                const SizedBox(height: 4),
+                                Text(_storageQuota, style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface, fontWeight: FontWeight.w500)), // changed from onBackground
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.sync, color: colorScheme.onSurfaceVariant),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Active Sync Path', style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                                const SizedBox(height: 4),
+                                Text('My Drive › Quire-Notes', style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface, fontWeight: FontWeight.w500)), // changed from onBackground
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+              
+              // 4. Sign out and Version
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -287,7 +306,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     ),
                   ),
-                  Text('Version 1.0.2', style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
+                  Text('v1.0.0', style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
                 ],
               ),
             ],
@@ -309,7 +328,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         decoration: BoxDecoration(color: colorScheme.surfaceContainer, shape: BoxShape.circle),
         child: Icon(icon, color: colorScheme.onSurfaceVariant),
       ),
-      title: Text(title, style: theme.textTheme.labelLarge?.copyWith(color: colorScheme.onBackground)),
+      title: Text(title, style: theme.textTheme.labelLarge?.copyWith(color: colorScheme.onSurface)), // changed from onBackground
       subtitle: Text(subtitle, style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant, fontSize: 14)),
       trailing: trailing,
       contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
