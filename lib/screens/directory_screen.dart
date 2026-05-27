@@ -9,6 +9,7 @@ import '../providers/database_provider.dart';
 import '../models/database_model.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/expandable_fab.dart';
+import '../widgets/move_file_dialog.dart';
 
 class DirectoryScreen extends ConsumerStatefulWidget {
   final String folderId;
@@ -213,70 +214,74 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
           ),
         ],
       ),
-      body: childFolders.isEmpty && childFiles.isEmpty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32.0),
-                child: Text(
-                  "This folder is empty.\nTap + to add content.",
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyLarge?.copyWith(color: colorScheme.outline),
-                ),
-              ),
-            )
-          : ListView(
-              padding: const EdgeInsets.all(24.0),
-              children: [
-                if (childFolders.isNotEmpty) ...[
-                  Text('Folders', style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
-                  const SizedBox(height: 12),
-                  GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 1.0,
-                    ),
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: childFolders.length,
-                    itemBuilder: (context, index) {
-                      final child = childFolders[index];
-                      return _buildFolderCard(context, child);
-                    },
-                  ),
-                  const SizedBox(height: 32),
-                ],
-                
-                if (childFiles.isNotEmpty) ...[
-                  Text('Files', style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
-                  const SizedBox(height: 12),
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: childFiles.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final fileEntry = childFiles[index];
-                      return _buildFileTile(context, fileEntry.key, fileEntry.value);
-                    },
-                  ),
-                ],
-              ],
-            ),
-      floatingActionButton: ExpandableFab(
-        distance: 64.0,
+      body: Stack(
         children: [
-          if (widget.depth < 3)
-            ActionButton(
-              onPressed: _showAddFolderDialog,
-              icon: const Icon(Icons.create_new_folder),
-              label: 'Add Folder',
-            ),
-          ActionButton(
-            onPressed: _pickAndUploadFiles,
-            icon: const Icon(Icons.upload_file),
-            label: 'Upload File',
+          childFolders.isEmpty && childFiles.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Text(
+                      "This folder is empty.\nTap + to add content.",
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyLarge?.copyWith(color: colorScheme.outline),
+                    ),
+                  ),
+                )
+              : ListView(
+                  padding: const EdgeInsets.all(24.0),
+                  children: [
+                    if (childFolders.isNotEmpty) ...[
+                      Text('Folders', style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
+                      const SizedBox(height: 12),
+                      GridView.builder(
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 1.0,
+                        ),
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: childFolders.length,
+                        itemBuilder: (context, index) {
+                          final child = childFolders[index];
+                          return _buildFolderCard(context, child);
+                        },
+                      ),
+                      const SizedBox(height: 32),
+                    ],
+                    
+                    if (childFiles.isNotEmpty) ...[
+                      Text('Files', style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
+                      const SizedBox(height: 12),
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: childFiles.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final fileEntry = childFiles[index];
+                          return _buildFileTile(context, fileEntry.key, fileEntry.value);
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+          ExpandableFab(
+            distance: 64.0,
+            children: [
+              if (widget.depth < 3)
+                ActionButton(
+                  onPressed: _showAddFolderDialog,
+                  icon: const Icon(Icons.create_new_folder),
+                  label: 'Add Folder',
+                ),
+              ActionButton(
+                onPressed: _pickAndUploadFiles,
+                icon: const Icon(Icons.upload_file),
+                label: 'Upload File',
+              ),
+            ],
           ),
         ],
       ),
@@ -330,7 +335,7 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
     
     return InkWell(
       onTap: () {
-        context.push('/viewer/$fileId');
+        context.push('/pdf-viewer/$fileId');
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(
@@ -389,6 +394,30 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        ListTile(
+                          leading: Icon(Icons.drive_file_move, color: colorScheme.primary),
+                          title: Text('Move File', style: TextStyle(color: colorScheme.primary)),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              builder: (context) => MoveFileDialog(fileIds: [fileId]),
+                            ).then((undoFunc) {
+                              if (undoFunc != null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('File moved successfully'),
+                                    action: SnackBarAction(
+                                      label: 'Undo',
+                                      onPressed: undoFunc as void Function(),
+                                    ),
+                                  ),
+                                );
+                              }
+                            });
+                          },
+                        ),
                         ListTile(
                           leading: Icon(Icons.delete, color: colorScheme.error),
                           title: Text('Delete File', style: TextStyle(color: colorScheme.error)),

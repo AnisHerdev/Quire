@@ -213,122 +213,126 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(width: 16),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Search Bar
-            Container(
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: colorScheme.surfaceVariant),
-                boxShadow: [
-                  BoxShadow(
-                    color: colorScheme.primaryContainer.withOpacity(0.08),
-                    blurRadius: 20,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: TextField(
-                onTap: () {
-                  context.push('/search');
-                },
-                readOnly: true,
-                decoration: InputDecoration(
-                  hintText: 'Search your notes, texts, or authors...',
-                  hintStyle: textTheme.bodyLarge?.copyWith(color: colorScheme.outlineVariant),
-                  prefixIcon: Icon(Icons.search, color: colorScheme.outline),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                ),
-              ),
-            ),
-            const SizedBox(height: 48),
-
-            // Inbox Section (Only visible if there are unorganized files)
-            if (inboxCount > 0) ...[
-              _buildInboxCard(context, inboxCount),
-              const SizedBox(height: 32),
-            ],
-
-            // Section Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.end,
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Your Folders',
-                  style: textTheme.headlineMedium,
-                ),
-                InkWell(
-                  onTap: () {},
-                  child: Row(
-                    children: [
-                      Text(
-                        'View All',
-                        style: textTheme.labelLarge?.copyWith(color: colorScheme.primary),
+                // Search Bar
+                Container(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: colorScheme.surfaceVariant),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colorScheme.primaryContainer.withOpacity(0.08),
+                        blurRadius: 20,
+                        offset: const Offset(0, 4),
                       ),
-                      const SizedBox(width: 4),
-                      Icon(Icons.arrow_forward, size: 18, color: colorScheme.primary),
                     ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Dynamic Content Area
-            if (rootFolders.isEmpty)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Text(
-                    "No folders found. Tap + to create one.",
-                    style: textTheme.bodyLarge?.copyWith(color: colorScheme.outline),
+                  child: TextField(
+                    onTap: () {
+                      context.push('/search');
+                    },
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      hintText: 'Search your notes, texts, or authors...',
+                      hintStyle: textTheme.bodyLarge?.copyWith(color: colorScheme.outlineVariant),
+                      prefixIcon: Icon(Icons.search, color: colorScheme.outline),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                    ),
                   ),
                 ),
-              )
-            else
-              GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 1.0,
+                const SizedBox(height: 48),
+
+                // Inbox Section (Only visible if there are unorganized files)
+                if (inboxCount > 0) ...[
+                  _buildInboxCard(context, inboxCount),
+                  const SizedBox(height: 32),
+                ],
+
+                // Section Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Your Folders',
+                      style: textTheme.headlineMedium,
+                    ),
+                    InkWell(
+                      onTap: () {},
+                      child: Row(
+                        children: [
+                          Text(
+                            'View All',
+                            style: textTheme.labelLarge?.copyWith(color: colorScheme.primary),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.arrow_forward, size: 18, color: colorScheme.primary),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: rootFolders.length,
-                itemBuilder: (context, index) {
-                  final folder = rootFolders[index];
-                  return _buildFolderCard(
-                    context: context, 
-                    folder: folder, 
-                  );
-                },
-              ),
-          ],
-        ),
-      ),
-      floatingActionButton: ExpandableFab(
-        distance: 64.0,
-        children: [
-          ActionButton(
-            onPressed: () {
-              _showAddFolderDialog();
-            },
-            icon: const Icon(Icons.create_new_folder),
-            label: 'Add Folder',
+                const SizedBox(height: 24),
+
+                // Dynamic Content Area
+                if (rootFolders.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Text(
+                        "No folders found. Tap + to create one.",
+                        style: textTheme.bodyLarge?.copyWith(color: colorScheme.outline),
+                      ),
+                    ),
+                  )
+                else
+                  GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: 1.0,
+                    ),
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: rootFolders.length,
+                    itemBuilder: (context, index) {
+                      final folder = rootFolders[index];
+                      return _buildFolderCard(
+                        context: context, 
+                        folder: folder, 
+                      );
+                    },
+                  ),
+              ],
+            ),
           ),
-          ActionButton(
-            onPressed: () {
-              _pickAndUploadFiles();
-            },
-            icon: const Icon(Icons.upload_file),
-            label: 'Upload File',
+          ExpandableFab(
+            distance: 64.0,
+            children: [
+              ActionButton(
+                onPressed: () {
+                  _showAddFolderDialog();
+                },
+                icon: const Icon(Icons.create_new_folder),
+                label: 'Add Folder',
+              ),
+              ActionButton(
+                onPressed: () {
+                  _pickAndUploadFiles();
+                },
+                icon: const Icon(Icons.upload_file),
+                label: 'Upload File',
+              ),
+            ],
           ),
         ],
       ),

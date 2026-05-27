@@ -58,29 +58,40 @@ class _ExpandableFabState extends State<ExpandableFab>
 
   @override
   Widget build(BuildContext context) {
+    // Designed to be placed as the LAST child in a full-screen Stack
     return SizedBox.expand(
       child: Stack(
-        alignment: Alignment.bottomRight,
-        clipBehavior: Clip.none,
         children: [
-          _buildTapToCloseFab(),
-          ..._buildExpandingActionButtons(),
-          _buildTapToOpenFab(),
+          _buildTapToCloseDimmer(),
+          Positioned(
+            right: 16.0,
+            bottom: 16.0,
+            child: Stack(
+              alignment: Alignment.bottomRight,
+              clipBehavior: Clip.none,
+              children: [
+                ..._buildExpandingActionButtons(),
+                _buildTapToOpenFab(),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTapToCloseFab() {
-    return IgnorePointer(
-      ignoring: !_open,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        color: _open ? Colors.black.withValues(alpha: 0.5) : Colors.transparent,
-        child: GestureDetector(
-          onTap: _toggle,
-          behavior: HitTestBehavior.opaque,
-          child: SizedBox.expand(),
+  Widget _buildTapToCloseDimmer() {
+    return Positioned.fill(
+      child: IgnorePointer(
+        ignoring: !_open,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          color: _open ? Colors.black.withValues(alpha: 0.5) : Colors.transparent,
+          child: GestureDetector(
+            onTap: _toggle,
+            behavior: HitTestBehavior.opaque,
+            child: const SizedBox.expand(),
+          ),
         ),
       ),
     );
