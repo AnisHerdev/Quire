@@ -157,13 +157,13 @@ class DriveService {
     }
   }
 
-  Future<drive.File> uploadVisibleFile(File localFile, String mimeType, String parentId) async {
+  Future<drive.File> uploadVisibleFile(File localFile, String mimeType, String parentId, {String? customName}) async {
     try {
       final driveApi = await _getDriveApi();
       final length = await localFile.length();
       final media = drive.Media(localFile.openRead(), length);
       
-      final fileName = localFile.path.split(Platform.pathSeparator).last;
+      final fileName = customName ?? localFile.path.split(Platform.pathSeparator).last;
       
       final driveFile = drive.File()
         ..name = fileName
@@ -199,7 +199,7 @@ class DriveService {
     }
   }
 
-  Future<Uint8List> getPdfBytes(String fileId) async {
+  Future<Uint8List> getPdfBytes(String fileId, String? driveId) async {
     try {
       final dir = await getApplicationDocumentsDirectory();
       final cacheDir = Directory('${dir.path}/pdf_cache');
@@ -213,7 +213,11 @@ class DriveService {
         return await localFile.readAsBytes();
       }
 
-      final bytes = await downloadFile(fileId);
+      if (driveId == null || driveId.isEmpty) {
+        throw Exception('File is still uploading and is not available offline.');
+      }
+
+      final bytes = await downloadFile(driveId);
       
       // Save to cache for next time
       await localFile.writeAsBytes(bytes);

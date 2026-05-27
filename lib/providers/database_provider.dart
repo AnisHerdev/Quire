@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 import '../models/database_model.dart';
-import '../services/sync_service.dart';
-import 'auth_provider.dart';
 import 'drive_provider.dart';
 
 final databaseProvider = NotifierProvider<DatabaseNotifier, QuireDatabase>(DatabaseNotifier.new);
@@ -92,39 +92,41 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
         final file = File(sharedFile.path);
         if (!await file.exists()) continue;
 
-        // 1. Ensure Quire root exists (or Inbox folder)
-        final rootId = await driveService.createVisibleFolder('Quire Inbox', null);
-        
-        // 2. Upload file to visible drive
+        // Extract original name or use custom name
+        final index = files.indexOf(sharedFile);
+        final finalName = (customNames != null && customNames.length > index && customNames[index].isNotEmpty) 
+            ? customNames[index] 
+            : (sharedFile.path.split(Platform.pathSeparator).last);
+            
         final mimeType = sharedFile.mimeType ?? 'application/pdf'; // fallback
-        final driveFile = await driveService.uploadVisibleFile(file, mimeType, rootId);
+
+        // Generate a local ID and copy file to cache immediately
+        const uuid = Uuid();
+        final localId = 'local_${uuid.v4()}';
         
-        if (driveFile.id != null) {
-          // Use custom name if provided, otherwise fallback to driveFile name
-          final index = files.indexOf(sharedFile);
-          final finalName = (customNames != null && customNames.length > index && customNames[index].isNotEmpty) 
-              ? customNames[index] 
-              : (driveFile.name ?? 'Unknown File');
-
-          // Rename in drive if custom name is different from what was uploaded
-          if (customNames != null && finalName != driveFile.name) {
-             // We could rename it in drive here, but it's okay if Drive file has original name and our DB has custom name for now, 
-             // or we should rename it in drive. Let's rely on Quire's DB for the display name.
-          }
-
-          // 3. Add to Uncategorized/Inbox (semesterId and subjectId are empty)
-          final newFile = QuireFileModel(
-            name: finalName,
-            mimeType: driveFile.mimeType ?? mimeType,
-            semesterId: '', // Uncategorized
-            subjectId: '',  // Uncategorized
-            addedAt: DateTime.now().millisecondsSinceEpoch,
-            tags: [],
-          );
-          
-          updatedFiles[driveFile.id!] = newFile;
-          stateChanged = true;
+        final dir = await getApplicationDocumentsDirectory();
+        final cacheDir = Directory('${dir.path}/pdf_cache');
+        if (!await cacheDir.exists()) {
+          await cacheDir.create(recursive: true);
         }
+        
+        final localFile = File('${cacheDir.path}/$localId.pdf');
+        await file.copy(localFile.path);
+
+        // Instantly save to local database
+        final newFile = QuireFileModel(
+          name: finalName,
+          mimeType: mimeType,
+          semesterId: '', // Uncategorized
+          subjectId: '',  // Uncategorized
+          addedAt: DateTime.now().millisecondsSinceEpoch,
+          tags: [],
+          syncStatus: 'pending',
+          driveId: null,
+        );
+        
+        updatedFiles[localId] = newFile;
+        stateChanged = true;
       } catch (e) {
         print('Error processing shared file: $e');
       }
@@ -133,6 +135,60 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     if (stateChanged) {
       state = state.copyWith(files: updatedFiles);
       await ref.read(syncServiceProvider).saveAndSync(state);
+      
+      // Kick off background sync without blocking UI
+      _syncPendingFiles();
+    }
+  }
+
+  Future<void> _syncPendingFiles() async {
+    final driveService = ref.read(driveServiceProvider);
+    if (!driveService.isReady) return;
+
+    final pendingFiles = state.files.entries.where((e) => e.value.syncStatus == 'pending').toList();
+    if (pendingFiles.isEmpty) return;
+
+    try {
+      final rootId = await driveService.createVisibleFolder('Quire Inbox', null);
+      final dir = await getApplicationDocumentsDirectory();
+      final cacheDir = Directory('${dir.path}/pdf_cache');
+      
+      bool dbChanged = false;
+      final updatedFiles = Map<String, QuireFileModel>.from(state.files);
+
+      for (var entry in pendingFiles) {
+        final localId = entry.key;
+        final fileModel = entry.value;
+        
+        final localFile = File('${cacheDir.path}/$localId.pdf');
+        if (await localFile.exists()) {
+          try {
+            final driveFile = await driveService.uploadVisibleFile(
+              localFile, 
+              fileModel.mimeType, 
+              rootId,
+              customName: fileModel.name, // Pass the exact database name!
+            );
+            
+            if (driveFile.id != null) {
+              updatedFiles[localId] = fileModel.copyWith(
+                driveId: driveFile.id,
+                syncStatus: 'synced',
+              );
+              dbChanged = true;
+            }
+          } catch (e) {
+            print('Background sync failed for $localId: $e');
+          }
+        }
+      }
+
+      if (dbChanged) {
+        state = state.copyWith(files: updatedFiles);
+        await ref.read(syncServiceProvider).saveAndSync(state);
+      }
+    } catch (e) {
+      print('Failed to sync pending files: $e');
     }
   }
 

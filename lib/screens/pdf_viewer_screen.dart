@@ -54,7 +54,11 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
   Future<void> _loadPdf() async {
     try {
       final driveService = ref.read(driveServiceProvider);
-      final bytes = await driveService.getPdfBytes(widget.fileId);
+      final database = ref.read(databaseProvider);
+      final file = database.files[widget.fileId];
+      if (file == null) throw Exception('File not found in database');
+      
+      final bytes = await driveService.getPdfBytes(widget.fileId, file.driveId);
       if (mounted) {
         setState(() {
           _pdfBytes = bytes;
