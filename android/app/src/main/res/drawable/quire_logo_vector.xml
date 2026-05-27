@@ -1,0 +1,51 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="192dp"
+    android:height="192dp"
+    android:viewportWidth="24.0"
+    android:viewportHeight="24.0">
+
+    <group
+        android:name="logo_group"
+        android:pivotX="12.0"
+        android:pivotY="12.0">
+        
+        <!-- Top smallest tab -->
+        <path
+            android:fillColor="#FECE65"
+            android:pathData="M 9 4 L 15 4 A 1 1 0 0 1 16 5 L 16 6 L 8 6 L 8 5 A 1 1 0 0 1 9 4 Z" />
+            
+        <!-- Middle tab -->
+        <path
+            android:fillColor="#FECE65"
+            android:pathData="M 6 6 L 18 6 A 1 1 0 0 1 19 7 L 19 8 L 5 8 L 5 7 A 1 1 0 0 1 6 6 Z" />
+            
+        <!-- Main body -->
+        <path
+            android:fillColor="#FECE65"
+            android:pathData="M 4 8 L 20 8 A 2 2 0 0 1 22 10 L 22 20 A 2 2 0 0 1 20 22 L 4 22 A 2 2 0 0 1 2 20 L 2 10 A 2 2 0 0 1 4 8 Z" />
+
+        <!-- Line 1 -->
+        <path
+            android:name="line1"
+            android:strokeColor="#1B4332"
+            android:strokeWidth="1.5"
+            android:strokeLineCap="round"
+            android:pathData="M 6.5 12 L 17.5 12" />
+
+        <!-- Line 2 -->
+        <path
+            android:name="line2"
+            android:strokeColor="#1B4332"
+            android:strokeWidth="1.5"
+            android:strokeLineCap="round"
+            android:pathData="M 6.5 15 L 17.5 15" />
+
+        <!-- Line 3 -->
+        <path
+            android:name="line3"
+            android:strokeColor="#1B4332"
+            android:strokeWidth="1.5"
+            android:strokeLineCap="round"
+            android:pathData="M 6.5 18 L 13.5 18" />
+    </group>
+</vector>

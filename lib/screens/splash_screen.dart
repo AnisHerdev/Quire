@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -26,19 +27,35 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
 
-    // Check auth state and navigate after a minimum 1.5s delay
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      if (mounted) {
-        final authState = ref.read(authProvider);
-        if (!authState.isLoading) {
-          if (authState.isAuthenticated) {
+    _checkFirstLaunchAndNavigate();
+  }
+
+  Future<void> _checkFirstLaunchAndNavigate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isFirstLaunch = prefs.getBool('is_first_launch') ?? true;
+
+    if (isFirstLaunch) {
+      // First time using the app: let the premium Flutter animation play
+      await prefs.setBool('is_first_launch', false);
+      await Future.delayed(const Duration(milliseconds: 2500));
+    }
+
+    if (!mounted) return;
+
+    // Check auth state and navigate immediately when loading finishes
+    ref.listenManual(
+      authProvider,
+      (previous, next) {
+        if (!next.isLoading && mounted) {
+          if (next.isAuthenticated) {
             context.go('/home');
           } else {
             context.go('/login');
           }
         }
-      }
-    });
+      },
+      fireImmediately: true,
+    );
   }
 
   @override
