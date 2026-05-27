@@ -328,7 +328,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     color: colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.folder_special, color: colorScheme.primaryContainer),
+                  child: Icon(Icons.folder_special, color: colorScheme.primary),
                 ),
               ],
             ),

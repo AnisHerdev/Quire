@@ -46,39 +46,39 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: const ColorScheme(
         brightness: Brightness.dark,
-        primary: AppColors.primaryContainer,
-        onPrimary: AppColors.onPrimaryContainer,
-        primaryContainer: AppColors.primary,
-        onPrimaryContainer: AppColors.onPrimary,
-        secondary: AppColors.secondaryContainer,
-        onSecondary: AppColors.onSecondaryContainer,
-        secondaryContainer: AppColors.secondary,
-        onSecondaryContainer: AppColors.onSecondary,
+        primary: AppColors.onPrimaryContainer, // Light green
+        onPrimary: AppColors.primary, // Dark green
+        primaryContainer: AppColors.primaryContainer, // Dark green
+        onPrimaryContainer: AppColors.onPrimary, // White
+        secondary: AppColors.secondaryContainer, // Light yellow
+        onSecondary: AppColors.onSecondaryContainer, // Dark yellow
+        secondaryContainer: AppColors.secondary, // Brownish
+        onSecondaryContainer: AppColors.onSecondary, // White
         error: AppColors.errorContainer,
         onError: AppColors.onErrorContainer,
         errorContainer: AppColors.error,
         onErrorContainer: AppColors.onError,
-        background: Color(0xFF1B1C19),
-        onBackground: Color(0xFFFAF9F4),
-        surface: Color(0xFF1B1C19),
-        onSurface: Color(0xFFFAF9F4),
-        surfaceVariant: Color(0xFF414844),
-        onSurfaceVariant: Color(0xFFE3E3DE),
-        outline: AppColors.outlineVariant,
-        outlineVariant: AppColors.outline,
+        background: Color(0xFF111111), // Deep dark background
+        onBackground: Color(0xFFF1F1F1),
+        surface: Color(0xFF1A1A1A), // Slightly lighter surface
+        onSurface: Color(0xFFF1F1F1),
+        surfaceVariant: Color(0xFF2C2C2C), // Cards and containers
+        onSurfaceVariant: Color(0xFFB3B3B3), // Subtitle text
+        outline: Color(0xFF8F9791),
+        outlineVariant: Color(0xFF717973),
       ),
-      scaffoldBackgroundColor: const Color(0xFF1B1C19),
+      scaffoldBackgroundColor: const Color(0xFF111111),
       textTheme: AppTypography.textTheme.apply(
-        bodyColor: const Color(0xFFFAF9F4),
-        displayColor: const Color(0xFFFAF9F4),
+        bodyColor: const Color(0xFFF1F1F1),
+        displayColor: const Color(0xFFF1F1F1),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: const Color(0xFF1B1C19),
-        foregroundColor: const Color(0xFFFAF9F4),
+        backgroundColor: const Color(0xFF111111),
+        foregroundColor: const Color(0xFFF1F1F1),
         elevation: 0,
         centerTitle: true,
         titleTextStyle: AppTypography.textTheme.headlineMedium?.copyWith(
-          color: const Color(0xFFFAF9F4),
+          color: const Color(0xFFF1F1F1),
         ),
       ),
     );
