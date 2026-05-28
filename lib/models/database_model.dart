@@ -159,7 +159,7 @@ class QuireDatabase {
   factory QuireDatabase.empty() {
     return QuireDatabase(
       syncMetadata: SyncMetadata(
-        lastSyncedAt: DateTime.now().millisecondsSinceEpoch,
+        lastSyncedAt: 0,
         version: '2.0',
       ),
       folders: const {},
