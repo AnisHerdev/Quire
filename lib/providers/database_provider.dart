@@ -454,7 +454,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
 
 
 
-  Future<void> deleteFiles(List<String> fileIds) async {
+  Future<void> deleteFiles(List<String> fileIds, {bool forceLocalDelete = false}) async {
     final driveService = ref.read(driveServiceProvider);
     
     bool requiresCloudDeletion = false;
@@ -482,7 +482,16 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
       if (file == null) continue;
 
       if (file.driveId != null) {
-        await driveService.deleteVisibleFile(file.driveId!);
+        try {
+          await driveService.deleteVisibleFile(file.driveId!);
+        } catch (e) {
+          if (!forceLocalDelete && e.toString().contains('FileNotFoundOnDrive')) {
+            throw Exception('FileNotFoundOnDrive');
+          }
+          if (!forceLocalDelete) {
+            rethrow;
+          }
+        }
       }
 
       final localFile = File('${cacheDir.path}/$id.pdf');

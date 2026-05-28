@@ -153,6 +153,34 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       }
     } catch (e) {
       if (mounted) {
+        if (e.toString().contains('FileNotFoundOnDrive')) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('File Not Found'),
+              content: const Text('This file was not found on Google Drive. It may have been deleted externally. Do you want to remove the local placeholder?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    ref.read(databaseProvider.notifier).deleteFiles(fileIds, forceLocalDelete: true);
+                    setState(() {
+                      _selectedFiles.clear();
+                      _isSelectionMode = false;
+                    });
+                  },
+                  child: const Text('Remove'),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+
         final errorMsg = e.toString().replaceAll('Exception: ', '').replaceAll('Bad state: ', '');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -185,8 +213,18 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         .where((e) => e.value.folderId == null)
         .toList();
 
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
+    return PopScope(
+      canPop: !_isSelectionMode,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _isSelectionMode) {
+          setState(() {
+            _isSelectionMode = false;
+            _selectedFiles.clear();
+          });
+        }
+      },
+      child: Scaffold(
+        backgroundColor: colorScheme.surface,
       appBar: AppBar(
         leading: _isSelectionMode
             ? IconButton(
@@ -278,7 +316,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       floatingActionButton: _isSelectionMode 
           ? _buildSelectionPill(context, colorScheme, textTheme)
           : null,
-    );
+    ));
   }
 
   Widget _buildSelectionPill(BuildContext context, ColorScheme colorScheme, TextTheme textTheme) {

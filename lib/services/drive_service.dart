@@ -227,8 +227,29 @@ class DriveService {
       final driveApi = await _getDriveApi();
       await driveApi.files.delete(fileId);
     } catch (e) {
+      if (e.toString().contains('404') || e.toString().contains('File not found')) {
+        throw Exception('FileNotFoundOnDrive');
+      }
       throw Exception('Failed to delete file from Google Drive: $e');
     }
+  }
+
+  Future<Uint8List?> getThumbnail(String driveId) async {
+    try {
+      final driveApi = await _getDriveApi();
+      final file = await driveApi.files.get(driveId, $fields: 'thumbnailLink') as drive.File;
+      final link = file.thumbnailLink;
+      if (link != null) {
+        final client = await _getAuthenticatedClient();
+        final response = await client.get(Uri.parse(link));
+        if (response.statusCode == 200) {
+          return response.bodyBytes;
+        }
+      }
+    } catch (e) {
+      print('Failed to get thumbnail: $e');
+    }
+    return null;
   }
 
   Future<Uint8List> downloadFile(String fileId) async {

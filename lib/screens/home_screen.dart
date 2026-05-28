@@ -340,8 +340,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final inboxCount = database.files.values.where((f) => f.folderId == null).length;
 
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
+    return PopScope(
+      canPop: !_isEditMode,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _isEditMode) {
+          _clearSelection();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: colorScheme.surface,
       appBar: _isEditMode 
         ? AppBar(
             leading: IconButton(
@@ -539,7 +546,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       bottomNavigationBar: const AppBottomNavBar(currentIndex: 0),
-    );
+    ));
   }
 
   Widget _buildFolderCard({

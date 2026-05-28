@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:open_filex/open_filex.dart';
 
 import '../providers/database_provider.dart';
 import '../providers/drive_provider.dart';
@@ -93,7 +94,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
 
   void _startToolbarHideTimer() {
     _toolbarHideTimer?.cancel();
-    _toolbarHideTimer = Timer(const Duration(milliseconds: 1500), () {
+    _toolbarHideTimer = Timer(const Duration(milliseconds: 2000), () {
       if (mounted && !_isSearchMode) {
         setState(() {
           _showToolbar = false;
@@ -178,6 +179,24 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to share file: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _openExternally() async {
+    if (_pdfBytes == null) return;
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final cacheDir = Directory('${dir.path}/pdf_cache');
+      final localFile = File('${cacheDir.path}/${widget.fileId}.pdf');
+      if (await localFile.exists()) {
+        await OpenFilex.open(localFile.path, type: 'application/pdf');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to open file: $e')),
         );
       }
     }
@@ -274,9 +293,21 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
                 });
               } else if (value == 'share') {
                 _sharePdf();
+              } else if (value == 'open_external') {
+                _openExternally();
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'open_external',
+                child: Row(
+                  children: [
+                    Icon(Icons.open_in_new, size: 20),
+                    SizedBox(width: 12),
+                    Text('Open Externally'),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: 'share',
                 child: Row(
@@ -345,8 +376,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
                   child: SfPdfViewer.memory(
                     _pdfBytes!,
                     controller: _pdfViewerController,
-                    canShowScrollHead: true,
-                    canShowScrollStatus: true,
+                    canShowScrollHead: _showToolbar,
+                    canShowScrollStatus: _showToolbar,
                     pageSpacing: 8,
                   ),
                 ),

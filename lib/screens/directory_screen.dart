@@ -12,6 +12,7 @@ import '../providers/auth_provider.dart';
 import '../widgets/expandable_fab.dart';
 import '../widgets/move_file_dialog.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../providers/thumbnail_provider.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 class DirectoryScreen extends ConsumerStatefulWidget {
@@ -173,8 +174,8 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           FilledButton(
             onPressed: () {
-              ref.read(databaseProvider.notifier).deleteFiles([fileId]);
               Navigator.pop(context);
+              _executeDelete([fileId]);
             },
             style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
             child: const Text('Delete'),
@@ -185,6 +186,7 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
   }
 
   bool _isEditMode = false;
+  bool _isGridMode = false;
   Set<String> _selectedItems = {};
 
   void _toggleSelection(String itemId) {
@@ -234,8 +236,7 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
             ),
             onPressed: () {
               Navigator.pop(context);
-              ref.read(databaseProvider.notifier).deleteFiles(fileIds);
-              _clearSelection();
+              _executeDelete(fileIds);
             },
             child: const Text('Delete'),
           ),
@@ -270,11 +271,15 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
             style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
             onPressed: () {
               final db = ref.read(databaseProvider.notifier);
-              if (fileIds.isNotEmpty) db.deleteFiles(fileIds);
+              if (fileIds.isNotEmpty) {
+                Navigator.pop(context);
+                _executeDelete(fileIds);
+              } else {
+                Navigator.pop(context);
+              }
               for (var id in folderIds) {
                 db.deleteFolder(id, keepFiles: false);
               }
-              Navigator.pop(context);
               _clearSelection();
             },
             child: const Text('Delete All'),
@@ -282,6 +287,45 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
         ],
       ),
     );
+  }
+
+  void _executeDelete(List<String> fileIds) async {
+    try {
+      await ref.read(databaseProvider.notifier).deleteFiles(fileIds);
+      if (mounted) {
+        _clearSelection();
+      }
+    } catch (e) {
+      if (mounted) {
+        if (e.toString().contains('FileNotFoundOnDrive')) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('File Not Found'),
+              content: const Text('This file was not found on Google Drive. It may have been deleted externally. Do you want to remove the local placeholder?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    ref.read(databaseProvider.notifier).deleteFiles(fileIds, forceLocalDelete: true);
+                    if (mounted) _clearSelection();
+                  },
+                  child: const Text('Remove'),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting file: $e')),
+        );
+      }
+    }
   }
 
   void _showFolderOptions(BuildContext context, String folderId, FolderModel folder) {
@@ -400,8 +444,15 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
         .toList()
       ..sort((a, b) => b.value.addedAt.compareTo(a.value.addedAt));
 
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
+    return PopScope(
+      canPop: !_isEditMode,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _isEditMode) {
+          _clearSelection();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: colorScheme.surface,
       appBar: _isEditMode
           ? AppBar(
               leading: IconButton(
@@ -467,6 +518,14 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                 ),
               ),
               actions: [
+                IconButton(
+                  icon: Icon(_isGridMode ? Icons.view_list : Icons.grid_view, color: colorScheme.onSurfaceVariant),
+                  onPressed: () {
+                    setState(() {
+                      _isGridMode = !_isGridMode;
+                    });
+                  },
+                ),
                 IconButton(
                   icon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
                   onPressed: () => context.push('/search'),
@@ -578,16 +637,33 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                 if (childFiles.isNotEmpty) ...[
                   Text('Files', style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
                   const SizedBox(height: 12),
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: childFiles.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final fileEntry = childFiles[index];
-                      return _buildFileTile(context, fileEntry.key, fileEntry.value);
-                    },
-                  ),
+                  if (!_isGridMode)
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: childFiles.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final fileEntry = childFiles[index];
+                        return _buildFileTile(context, fileEntry.key, fileEntry.value);
+                      },
+                    )
+                  else
+                    GridView.builder(
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 0.85,
+                      ),
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: childFiles.length,
+                      itemBuilder: (context, index) {
+                        final fileEntry = childFiles[index];
+                        return _buildFileGridCard(context, fileEntry.key, fileEntry.value);
+                      },
+                    ),
                 ],
               ],
             ],
@@ -618,7 +694,7 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
         ],
       ),
       bottomNavigationBar: const AppBottomNavBar(currentIndex: 0),
-    );
+    ));
   }
 
   Widget _buildFolderCard({
@@ -844,6 +920,196 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildFileGridCard(BuildContext context, String fileId, QuireFileModel file) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isSelected = _selectedItems.contains(fileId);
+
+    IconData fallbackIcon;
+    Color iconColor;
+    
+    if (file.mimeType.contains('pdf')) {
+      fallbackIcon = Icons.picture_as_pdf;
+      iconColor = Colors.red;
+    } else if (file.mimeType.contains('presentation') || file.mimeType.contains('powerpoint')) {
+      fallbackIcon = Icons.slideshow;
+      iconColor = Colors.orange;
+    } else if (file.mimeType.contains('document') || file.mimeType.contains('wordprocessingml')) {
+      fallbackIcon = Icons.description;
+      iconColor = Colors.blue;
+    } else if (file.mimeType.contains('text')) {
+      fallbackIcon = Icons.text_snippet;
+      iconColor = Colors.green;
+    } else {
+      fallbackIcon = Icons.insert_drive_file;
+      iconColor = Colors.grey;
+    }
+
+    return InkWell(
+      onLongPress: () {
+        if (!_isEditMode) {
+          setState(() {
+            _isEditMode = true;
+            _selectedItems.add(fileId);
+          });
+        }
+      },
+      onTap: () async {
+        if (_isEditMode) {
+          _toggleSelection(fileId);
+        } else {
+          if (file.mimeType == 'application/pdf') {
+            context.push('/pdf-viewer/$fileId');
+          } else {
+            final dir = await getApplicationDocumentsDirectory();
+            final filePath = '${dir.path}/pdf_cache/$fileId.pdf';
+            await OpenFilex.open(filePath, type: file.mimeType);
+          }
+        }
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isSelected ? colorScheme.primaryContainer.withOpacity(0.3) : colorScheme.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? colorScheme.primary : colorScheme.surfaceVariant,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                child: file.driveId != null
+                  ? Consumer(
+                      builder: (context, ref, _) {
+                        final thumbAsync = ref.watch(thumbnailProvider(file.driveId!));
+                        return thumbAsync.when(
+                          data: (bytes) {
+                            if (bytes != null) {
+                              return Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Image.memory(bytes, fit: BoxFit.cover),
+                                  if (isSelected)
+                                    Container(
+                                      color: colorScheme.primary.withOpacity(0.3),
+                                      child: Icon(Icons.check_circle, color: colorScheme.onPrimary, size: 32),
+                                    ),
+                                ],
+                              );
+                            }
+                            return _buildFallbackThumbnail(colorScheme, fallbackIcon, iconColor, isSelected);
+                          },
+                          loading: () => const Center(child: CircularProgressIndicator()),
+                          error: (_, __) => _buildFallbackThumbnail(colorScheme, fallbackIcon, iconColor, isSelected),
+                        );
+                      }
+                    )
+                  : _buildFallbackThumbnail(colorScheme, fallbackIcon, iconColor, isSelected),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          file.name,
+                          style: theme.textTheme.titleSmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (!_isEditMode)
+                        GestureDetector(
+                          onTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              builder: (ctx) => SafeArea(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ListTile(
+                                      leading: const Icon(Icons.drive_file_move),
+                                      title: const Text('Move to...'),
+                                      onTap: () {
+                                        Navigator.pop(ctx);
+                                        showModalBottomSheet(
+                                          context: context,
+                                          isScrollControlled: true,
+                                          builder: (context) => MoveFileDialog(fileIds: [fileId]),
+                                        ).then((undoFunc) {
+                                          if (undoFunc != null) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: const Text('File moved successfully'),
+                                                action: SnackBarAction(label: 'Undo', onPressed: undoFunc as void Function()),
+                                              ),
+                                            );
+                                          }
+                                        });
+                                      },
+                                    ),
+                                    ListTile(
+                                      leading: Icon(Icons.delete, color: colorScheme.error),
+                                      title: Text('Delete File', style: TextStyle(color: colorScheme.error)),
+                                      onTap: () {
+                                        Navigator.pop(ctx);
+                                        _showDeleteFileDialog(fileId, file);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                          child: Icon(Icons.more_vert, size: 16, color: colorScheme.onSurfaceVariant),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        file.syncStatus == 'synced' ? Icons.cloud_done : Icons.cloud_upload,
+                        size: 12,
+                        color: colorScheme.outline,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        file.syncStatus == 'synced' ? 'Synced' : 'Pending',
+                        style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.outline, fontSize: 10),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFallbackThumbnail(ColorScheme colorScheme, IconData icon, Color iconColor, bool isSelected) {
+    return Container(
+      color: iconColor.withOpacity(0.1),
+      child: Center(
+        child: isSelected 
+          ? Icon(Icons.check_circle, color: colorScheme.primary, size: 48)
+          : Icon(icon, color: iconColor, size: 48),
       ),
     );
   }
