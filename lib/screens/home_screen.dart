@@ -21,6 +21,64 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final GlobalKey<ExpandableFabState> _fabKey = GlobalKey<ExpandableFabState>();
+  
+  bool _isEditMode = false;
+  Set<String> _selectedItems = {};
+
+  void _toggleSelection(String itemId) {
+    setState(() {
+      if (_selectedItems.contains(itemId)) {
+        _selectedItems.remove(itemId);
+        if (_selectedItems.isEmpty) _isEditMode = false;
+      } else {
+        _selectedItems.add(itemId);
+      }
+    });
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedItems.clear();
+      _isEditMode = false;
+    });
+  }
+
+  void _showDeleteMultipleDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Folders'),
+        content: const Text('What would you like to do with the files inside these folders?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              for (var id in _selectedItems) {
+                ref.read(databaseProvider.notifier).deleteFolder(id, keepFiles: true);
+              }
+              Navigator.pop(context);
+              _clearSelection();
+            },
+            child: const Text('Keep Contents (Move to Inbox)'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () {
+              for (var id in _selectedItems) {
+                ref.read(databaseProvider.notifier).deleteFolder(id, keepFiles: false);
+              }
+              Navigator.pop(context);
+              _clearSelection();
+            },
+            child: const Text('Delete All'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -284,31 +342,65 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        title: Text(
-          authState.user?.displayName ?? 'Quire',
-          style: textTheme.headlineMedium?.copyWith(
-            color: colorScheme.primary,
+      appBar: _isEditMode 
+        ? AppBar(
+            leading: IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: _clearSelection,
+            ),
+            title: Text('${_selectedItems.length} Selected'),
+            actions: [
+              if (_selectedItems.length == 1)
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () {
+                    final folder = database.folders[_selectedItems.first];
+                    if (folder != null) {
+                      _showRenameFolderDialog(_selectedItems.first, folder);
+                      _clearSelection();
+                    }
+                  },
+                ),
+              IconButton(
+                icon: const Icon(Icons.delete),
+                onPressed: () {
+                  if (_selectedItems.length == 1) {
+                    final folder = database.folders[_selectedItems.first];
+                    if (folder != null) {
+                      _showDeleteFolderDialog(_selectedItems.first, folder);
+                    }
+                  } else {
+                    _showDeleteMultipleDialog();
+                  }
+                },
+              ),
+            ],
+          )
+        : AppBar(
+            title: Text(
+              authState.user?.displayName ?? 'Quire',
+              style: textTheme.headlineMedium?.copyWith(
+                color: colorScheme.primary,
+              ),
+            ),
+            actions: [
+              IconButton(
+                icon: Icon(Icons.settings, color: colorScheme.onSurfaceVariant),
+                onPressed: () {},
+              ),
+              const SizedBox(width: 8),
+              CircleAvatar(
+                radius: 16,
+                backgroundImage: authState.user?.photoUrl.isNotEmpty == true 
+                    ? NetworkImage(authState.user!.photoUrl) 
+                    : null,
+                child: authState.user?.photoUrl.isEmpty == true 
+                    ? const Icon(Icons.person, size: 20) 
+                    : null,
+              ),
+              const SizedBox(width: 16),
+            ],
           ),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.settings, color: colorScheme.onSurfaceVariant),
-            onPressed: () {},
-          ),
-          const SizedBox(width: 8),
-          CircleAvatar(
-            radius: 16,
-            backgroundImage: authState.user?.photoUrl.isNotEmpty == true 
-                ? NetworkImage(authState.user!.photoUrl) 
-                : null,
-            child: authState.user?.photoUrl.isEmpty == true 
-                ? const Icon(Icons.person, size: 20) 
-                : null,
-          ),
-          const SizedBox(width: 16),
-        ],
-      ),
       body: Stack(
         children: [
           SingleChildScrollView(
@@ -370,6 +462,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                   )
+                else if (!_isEditMode)
+                  GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: 1.0,
+                    ),
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: rootFolders.length,
+                    itemBuilder: (context, index) {
+                      final folder = rootFolders[index];
+                      return _buildFolderCard(
+                        key: ValueKey(folder.id),
+                        context: context, 
+                        folder: folder, 
+                        index: index,
+                      );
+                    },
+                  )
                 else
                   ReorderableGridView.builder(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -394,6 +507,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         key: ValueKey(folder.id),
                         context: context, 
                         folder: folder, 
+                        index: index,
                       );
                     },
                   ),
@@ -432,28 +546,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     Key? key,
     required BuildContext context,
     required FolderModel folder,
+    int? index,
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     
+    final isSelected = _selectedItems.contains(folder.id);
+    
     return InkWell(
       key: key,
       onTap: () {
-        context.push('/folder/${folder.id}', extra: 1); // Depth is 1 for children of root folders
+        if (_isEditMode) {
+          _toggleSelection(folder.id);
+        } else {
+          context.push('/folder/${folder.id}', extra: 1); // Depth is 1 for children of root folders
+        }
+      },
+      onLongPress: _isEditMode ? null : () {
+        setState(() {
+          _isEditMode = true;
+          _selectedItems.add(folder.id);
+        });
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: colorScheme.surface,
+          color: isSelected ? colorScheme.primaryContainer : colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: colorScheme.surfaceVariant),
+          border: Border.all(
+            color: isSelected ? colorScheme.primary : colorScheme.surfaceVariant,
+            width: isSelected ? 2 : 1,
+          ),
           boxShadow: [
-            BoxShadow(
-              color: colorScheme.primaryContainer.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
+            if (!isSelected)
+              BoxShadow(
+                color: colorScheme.primaryContainer.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
           ],
         ),
         child: Column(
@@ -468,17 +599,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainer,
+                    color: isSelected ? colorScheme.primary : colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.folder_special, color: colorScheme.primary),
+                  child: Icon(
+                    isSelected ? Icons.check : Icons.folder_special, 
+                    color: isSelected ? colorScheme.onPrimary : colorScheme.primary
+                  ),
                 ),
-                IconButton(
-                  icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () => _showFolderOptions(context, folder.id, folder),
-                ),
+                if (_isEditMode)
+                  index != null 
+                    ? ReorderableDragStartListener(
+                        index: index,
+                        child: Icon(Icons.drag_indicator, color: colorScheme.onSurfaceVariant),
+                      )
+                    : Icon(Icons.drag_indicator, color: colorScheme.onSurfaceVariant)
+                else
+                  IconButton(
+                    icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _showFolderOptions(context, folder.id, folder),
+                  ),
               ],
             ),
             Column(

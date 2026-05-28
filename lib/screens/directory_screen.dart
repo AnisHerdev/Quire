@@ -183,25 +183,40 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
     );
   }
 
-  Set<String> _selectedFiles = {};
+  bool _isEditMode = false;
+  Set<String> _selectedItems = {};
 
-  void _toggleSelection(String fileId) {
+  void _toggleSelection(String itemId) {
     setState(() {
-      if (_selectedFiles.contains(fileId)) {
-        _selectedFiles.remove(fileId);
+      if (_selectedItems.contains(itemId)) {
+        _selectedItems.remove(itemId);
+        if (_selectedItems.isEmpty) _isEditMode = false;
       } else {
-        _selectedFiles.add(fileId);
+        _selectedItems.add(itemId);
       }
     });
   }
 
   void _clearSelection() {
     setState(() {
-      _selectedFiles.clear();
+      _selectedItems.clear();
+      _isEditMode = false;
     });
   }
 
-  void _showDeleteMultipleDialog(List<String> fileIds) {
+  void _handleDeleteMultiple() {
+    final database = ref.read(databaseProvider);
+    final selectedFolders = _selectedItems.where((id) => database.folders.containsKey(id)).toList();
+    final selectedFiles = _selectedItems.where((id) => database.files.containsKey(id)).toList();
+
+    if (selectedFolders.isEmpty && selectedFiles.isNotEmpty) {
+      _showDeleteMultipleFilesDialog(selectedFiles);
+    } else if (selectedFolders.isNotEmpty) {
+      _showDeleteMultipleMixedDialog(selectedFolders, selectedFiles);
+    }
+  }
+
+  void _showDeleteMultipleFilesDialog(List<String> fileIds) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -222,6 +237,46 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
               _clearSelection();
             },
             child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteMultipleMixedDialog(List<String> folderIds, List<String> fileIds) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(fileIds.isEmpty ? 'Delete Folders' : 'Delete Items'),
+        content: Text(fileIds.isNotEmpty 
+          ? 'You have selected ${fileIds.length} file(s) and ${folderIds.length} folder(s).\n\nIf you choose to un-categorize, the selected files and folder contents will be moved to your Inbox. Otherwise, they will all be deleted.'
+          : 'What would you like to do with the files inside these selected folders?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              final db = ref.read(databaseProvider.notifier);
+              if (fileIds.isNotEmpty) db.moveFiles(fileIds, null);
+              for (var id in folderIds) {
+                db.deleteFolder(id, keepFiles: true);
+              }
+              Navigator.pop(context);
+              _clearSelection();
+            },
+            child: Text(fileIds.isNotEmpty ? 'Un-categorize All' : 'Keep Contents (Move to Inbox)'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () {
+              final db = ref.read(databaseProvider.notifier);
+              if (fileIds.isNotEmpty) db.deleteFiles(fileIds);
+              for (var id in folderIds) {
+                db.deleteFolder(id, keepFiles: false);
+              }
+              Navigator.pop(context);
+              _clearSelection();
+            },
+            child: const Text('Delete All'),
           ),
         ],
       ),
@@ -346,44 +401,53 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      appBar: _selectedFiles.isNotEmpty
+      appBar: _isEditMode
           ? AppBar(
               leading: IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: _clearSelection,
               ),
-              title: Text('${_selectedFiles.length} selected'),
+              title: Text('${_selectedItems.length} selected'),
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.drive_file_move),
-                  onPressed: () {
-                    final selectedList = _selectedFiles.toList();
-                    _clearSelection();
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      builder: (context) => MoveFileDialog(fileIds: selectedList),
-                    ).then((undoFunc) {
-                      if (undoFunc != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text('Files moved successfully'),
-                            action: SnackBarAction(
-                              label: 'Undo',
-                              onPressed: undoFunc as void Function(),
-                            ),
-                          ),
-                        );
+                if (_selectedItems.length == 1 && database.folders.containsKey(_selectedItems.first))
+                  IconButton(
+                    icon: const Icon(Icons.edit),
+                    onPressed: () {
+                      final folderToRename = database.folders[_selectedItems.first];
+                      if (folderToRename != null) {
+                        _showRenameFolderDialog(_selectedItems.first, folderToRename);
+                        _clearSelection();
                       }
-                    });
-                  },
-                ),
+                    },
+                  ),
+                if (_selectedItems.every((id) => database.files.containsKey(id)))
+                  IconButton(
+                    icon: const Icon(Icons.drive_file_move),
+                    onPressed: () {
+                      final selectedList = _selectedItems.toList();
+                      _clearSelection();
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        builder: (context) => MoveFileDialog(fileIds: selectedList),
+                      ).then((undoFunc) {
+                        if (undoFunc != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text('Files moved successfully'),
+                              action: SnackBarAction(
+                                label: 'Undo',
+                                onPressed: undoFunc as void Function(),
+                              ),
+                            ),
+                          );
+                        }
+                      });
+                    },
+                  ),
                 IconButton(
                   icon: const Icon(Icons.delete),
-                  onPressed: () {
-                    final selectedList = _selectedFiles.toList();
-                    _showDeleteMultipleDialog(selectedList);
-                  },
+                  onPressed: _handleDeleteMultiple,
                 ),
               ],
             )
@@ -458,32 +522,55 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                 if (childFolders.isNotEmpty) ...[
                   Text('Folders', style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
                   const SizedBox(height: 12),
-                  ReorderableGridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 1.0,
+                  if (!_isEditMode)
+                    GridView.builder(
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 1.0,
+                      ),
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: childFolders.length,
+                      itemBuilder: (context, index) {
+                        final child = childFolders[index];
+                        return _buildFolderCard(
+                          key: ValueKey(child.id),
+                          context: context, 
+                          childFolder: child,
+                          index: index,
+                        );
+                      },
+                    )
+                  else
+                    ReorderableGridView.builder(
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 1.0,
+                      ),
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: childFolders.length,
+                      onReorder: (oldIndex, newIndex) {
+                        final folder = childFolders.removeAt(oldIndex);
+                        childFolders.insert(newIndex, folder);
+                        ref.read(databaseProvider.notifier).reorderFolders(
+                          childFolders.map((f) => f.id).toList()
+                        );
+                      },
+                      itemBuilder: (context, index) {
+                        final child = childFolders[index];
+                        return _buildFolderCard(
+                          key: ValueKey(child.id),
+                          context: context, 
+                          childFolder: child,
+                          index: index,
+                        );
+                      },
                     ),
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: childFolders.length,
-                    onReorder: (oldIndex, newIndex) {
-                      final folder = childFolders.removeAt(oldIndex);
-                      childFolders.insert(newIndex, folder);
-                      ref.read(databaseProvider.notifier).reorderFolders(
-                        childFolders.map((f) => f.id).toList()
-                      );
-                    },
-                    itemBuilder: (context, index) {
-                      final child = childFolders[index];
-                      return _buildFolderCard(
-                        key: ValueKey(child.id),
-                        context: context, 
-                        childFolder: child,
-                      );
-                    },
-                  ),
                   const SizedBox(height: 32),
                 ],
                 
@@ -537,22 +624,38 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
     Key? key,
     required BuildContext context, 
     required FolderModel childFolder,
+    int? index,
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     
+    final isSelected = _selectedItems.contains(childFolder.id);
+
     return InkWell(
       key: key,
       onTap: () {
-        context.push('/folder/${childFolder.id}', extra: widget.depth + 1);
+        if (_isEditMode) {
+          _toggleSelection(childFolder.id);
+        } else {
+          context.push('/folder/${childFolder.id}', extra: widget.depth + 1);
+        }
+      },
+      onLongPress: _isEditMode ? null : () {
+        setState(() {
+          _isEditMode = true;
+          _selectedItems.add(childFolder.id);
+        });
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerLowest,
+          color: isSelected ? colorScheme.primaryContainer : colorScheme.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: colorScheme.surfaceVariant),
+          border: Border.all(
+            color: isSelected ? colorScheme.primary : colorScheme.surfaceVariant,
+            width: isSelected ? 2 : 1,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -566,17 +669,28 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainer,
+                    color: isSelected ? colorScheme.primary : colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.folder, color: colorScheme.primary),
+                  child: Icon(
+                    isSelected ? Icons.check : Icons.folder, 
+                    color: isSelected ? colorScheme.onPrimary : colorScheme.primary
+                  ),
                 ),
-                IconButton(
-                  icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () => _showFolderOptions(context, childFolder.id, childFolder),
-                ),
+                if (_isEditMode)
+                  index != null 
+                    ? ReorderableDragStartListener(
+                        index: index,
+                        child: Icon(Icons.drag_indicator, color: colorScheme.onSurfaceVariant),
+                      )
+                    : Icon(Icons.drag_indicator, color: colorScheme.onSurfaceVariant)
+                else
+                  IconButton(
+                    icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _showFolderOptions(context, childFolder.id, childFolder),
+                  ),
               ],
             ),
             Text(
@@ -595,12 +709,19 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     
-    final isSelected = _selectedFiles.contains(fileId);
+    final isSelected = _selectedItems.contains(fileId);
 
     return InkWell(
-      onLongPress: () => _toggleSelection(fileId),
+      onLongPress: () {
+        if (!_isEditMode) {
+          setState(() {
+            _isEditMode = true;
+            _selectedItems.add(fileId);
+          });
+        }
+      },
       onTap: () {
-        if (_selectedFiles.isNotEmpty) {
+        if (_isEditMode) {
           _toggleSelection(fileId);
         } else {
           context.push('/pdf-viewer/$fileId');
@@ -612,7 +733,10 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
         decoration: BoxDecoration(
           color: isSelected ? colorScheme.primaryContainer.withOpacity(0.3) : colorScheme.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isSelected ? colorScheme.primary : colorScheme.surfaceVariant),
+          border: Border.all(
+            color: isSelected ? colorScheme.primary : colorScheme.surfaceVariant,
+            width: isSelected ? 2 : 1,
+          ),
         ),
         child: Row(
           children: [
@@ -654,7 +778,7 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                 ],
               ),
             ),
-            if (_selectedFiles.isEmpty)
+            if (!_isEditMode)
               IconButton(
                 icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant),
                 onPressed: () {
