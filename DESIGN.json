@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-28T19:43:00Z",
+  "title": "Design System: Quire",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Deep Forest Green", "canonical": "#012D1D", "tonalRamp": ["#00110A", "#012D1D", "#1B4332", "#86AF99", "#A5D0B9", "#C1ECD4", "#E0F5E9", "#F0FDF5"] },
+      "secondary": { "role": "secondary", "displayName": "Warm Gold", "canonical": "#795900", "tonalRamp": ["#3D2C00", "#795900", "#FECE65", "#FFDF9F", "#EEC058", "#FFF0CB", "#FFF8E7", "#FFFCF5"] },
+      "background": { "role": "neutral", "displayName": "Warm Off-White", "canonical": "#FAF9F4", "tonalRamp": ["#1B1C19", "#414844", "#717973", "#C1C8C2", "#E3E3DE", "#EFEEE9", "#F5F4EF", "#FAF9F4"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero moments or major screen titles." },
+      "headline": { "displayName": "Headline", "purpose": "Primary page headers and prominent section dividers." },
+      "title": { "displayName": "Title", "purpose": "Card titles, folder names, or list item headers." },
+      "body": { "displayName": "Body", "purpose": "Standard reading text. Caps around 65-75ch." },
+      "label": { "displayName": "Label", "purpose": "UI metadata, timestamps, button labels." }
+    },
+    "shadows": [
+      { "name": "ambient-glow", "value": "0 4px 20px rgba(27, 67, 50, 0.08)", "purpose": "Soft, tinted shadow for cards in Light Mode." }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "768px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Pill-shaped primary action button.",
+      "html": "<button class=\"ds-btn-primary\">CREATE FOLDER</button>",
+      "css": ".ds-btn-primary { background: #012D1D; color: #FFFFFF; padding: 16px 24px; font-family: Inter, sans-serif; font-size: 14px; font-weight: 600; border: none; border-radius: 24px; cursor: pointer; transition: background 0.2s; } .ds-btn-primary:hover { background: #1B4332; }"
+    },
+    {
+      "name": "Standard Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Rounded container for content and lists.",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">Document Title</h3><p class=\"ds-card-body\">This is the body content of the card, using Inter for high legibility.</p></div>",
+      "css": ".ds-card { background: #FAF9F4; padding: 16px; border-radius: 16px; box-shadow: 0 4px 20px rgba(27, 67, 50, 0.08); } .ds-card-title { font-family: Lora, serif; font-size: 24px; font-weight: 600; color: #1B1C19; margin: 0 0 8px 0; } .ds-card-body { font-family: Inter, sans-serif; font-size: 16px; color: #414844; margin: 0; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Academic Sanctuary",
+    "overview": "The design system for Quire evokes the quiet focus of a well-lit library and the tactile satisfaction of a curated study desk. The personality is disciplined yet inviting—clean, warm, and highly organized. The aesthetic leans into Modern Corporate with Minimalist influences, utilizing high-quality serif typography for content to provide a scholarly rhythm. The interface prioritizes focus by reducing visual noise, using deep greens and warm ambers to create a grounded, studious atmosphere that differentiates itself from typical cold, clinical productivity tools.",
+    "keyCharacteristics": [
+      "Scholarly yet modern aesthetic",
+      "High-contrast, legible typography pairing (Lora & Inter)",
+      "Warm off-white backgrounds (Light Mode) and deep charcoal (Dark Mode) to reduce eye strain",
+      "Soft, pill-shaped buttons and generously rounded cards"
+    ],
+    "rules": [
+      { "name": "The Warmth Rule", "body": "Neutral surfaces in Light Mode should never be pure white (#FFFFFF) unless used as an absolute highlight. They must always carry a slight warm tint (#FAF9F4) to feel tactile and printed.", "section": "colors" },
+      { "name": "The Scholarly Rhythm Rule", "body": "Headings must use Lora to establish the academic context, while all functional UI text (buttons, metadata, navigation) strictly uses Inter to maintain instant legibility.", "section": "typography" },
+      { "name": "The Tonal Depth Rule", "body": "In Dark Mode, depth is achieved by lightening the surface color (e.g., #161716 or #2A2B2A) against the deeper background (#0F100F), rather than using drop shadows.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use extremely soft, tinted shadows (e.g., rgba(27, 67, 50, 0.08)) instead of generic gray/black drop shadows.",
+      "Do maintain a 1.5x line height for body text to ensure readability during heavy research/reading tasks.",
+      "Do ensure all vertical spacing is a multiple of the 8px base unit."
+    ],
+    "donts": [
+      "Don't use pure white (#FFFFFF) as a main background in Light Mode; always use the Warm Off-White (#FAF9F4).",
+      "Don't mix Lora and Inter within the same paragraph or block. Use Lora for the header, Inter for the body.",
+      "Don't use identical, endless card grids without visual breaks.",
+      "Don't use high-contrast black shadows."
+    ]
+  }
+}
