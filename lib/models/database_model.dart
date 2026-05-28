@@ -38,6 +38,8 @@ class FolderModel {
   final String? parentId;
   final int order;
   final int createdAt;
+  final String? driveId;
+  final String syncStatus;
 
   const FolderModel({
     required this.id,
@@ -45,6 +47,8 @@ class FolderModel {
     this.parentId,
     required this.order,
     required this.createdAt,
+    this.driveId,
+    this.syncStatus = 'synced',
   });
 
   factory FolderModel.fromJson(Map<String, dynamic> json) {
@@ -54,6 +58,8 @@ class FolderModel {
       parentId: json['parentId'] as String?,
       order: json['order'] as int? ?? 0,
       createdAt: json['createdAt'] as int? ?? 0,
+      driveId: json['driveId'] as String?,
+      syncStatus: json['syncStatus'] as String? ?? 'synced',
     );
   }
 
@@ -63,6 +69,8 @@ class FolderModel {
         if (parentId != null) 'parentId': parentId,
         'order': order,
         'createdAt': createdAt,
+        if (driveId != null) 'driveId': driveId,
+        'syncStatus': syncStatus,
       };
 
   FolderModel copyWith({
@@ -71,6 +79,8 @@ class FolderModel {
     String? parentId,
     int? order,
     int? createdAt,
+    String? driveId,
+    String? syncStatus,
   }) {
     return FolderModel(
       id: id ?? this.id,
@@ -78,6 +88,8 @@ class FolderModel {
       parentId: parentId ?? this.parentId,
       order: order ?? this.order,
       createdAt: createdAt ?? this.createdAt,
+      driveId: driveId ?? this.driveId,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 }

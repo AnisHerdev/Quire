@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:uuid/uuid.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:open_filex/open_filex.dart';
 import '../providers/database_provider.dart';
 import '../models/database_model.dart';
 import '../providers/auth_provider.dart';
@@ -72,7 +73,7 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
     try {
       FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf'],
+        allowedExtensions: ['pdf', 'doc', 'docx', 'ppt', 'pptx'],
         allowMultiple: true,
       );
 
@@ -720,11 +721,17 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
           });
         }
       },
-      onTap: () {
+      onTap: () async {
         if (_isEditMode) {
           _toggleSelection(fileId);
         } else {
-          context.push('/pdf-viewer/$fileId');
+          if (file.mimeType == 'application/pdf') {
+            context.push('/pdf-viewer/$fileId');
+          } else {
+            final dir = await getApplicationDocumentsDirectory();
+            final filePath = '${dir.path}/pdf_cache/$fileId.pdf';
+            await OpenFilex.open(filePath, type: file.mimeType);
+          }
         }
       },
       borderRadius: BorderRadius.circular(16),
@@ -747,7 +754,16 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                 color: isSelected ? colorScheme.primary : colorScheme.secondaryContainer.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(isSelected ? Icons.check : Icons.picture_as_pdf, color: isSelected ? colorScheme.onPrimary : colorScheme.secondary),
+              child: Icon(
+                isSelected ? Icons.check : 
+                (file.mimeType.contains('word') || file.mimeType.contains('document') ? Icons.description :
+                 file.mimeType.contains('powerpoint') || file.mimeType.contains('presentation') ? Icons.slideshow :
+                 Icons.picture_as_pdf), 
+                color: isSelected ? colorScheme.onPrimary : 
+                (file.mimeType.contains('word') || file.mimeType.contains('document') ? Colors.blue :
+                 file.mimeType.contains('powerpoint') || file.mimeType.contains('presentation') ? Colors.orange :
+                 colorScheme.secondary)
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(

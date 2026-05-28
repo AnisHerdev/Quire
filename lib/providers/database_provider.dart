@@ -54,6 +54,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
       parentId: parentId,
       order: order,
       createdAt: DateTime.now().millisecondsSinceEpoch,
+      syncStatus: 'pending',
     );
     
     final updatedFolders = Map<String, FolderModel>.from(state.folders)..[id] = newFolder;
@@ -110,9 +111,17 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
       }
     }
 
-    // 4. Delete the folders from state
+    // 4. Delete the folders from state and Google Drive
     final updatedFolders = Map<String, FolderModel>.from(state.folders);
+    final driveService = ref.read(driveServiceProvider);
+    
     for (final id in foldersToDelete) {
+      final f = updatedFolders[id];
+      if (f != null && f.driveId != null && driveService.isReady) {
+        try {
+          await driveService.deleteVisibleFile(f.driveId!);
+        } catch (e) {}
+      }
       updatedFolders.remove(id);
     }
 
@@ -159,7 +168,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
             ? customNames[index] 
             : (sharedFile.path.split(Platform.pathSeparator).last);
             
-        final mimeType = sharedFile.mimeType ?? 'application/pdf'; // fallback
+        final mimeType = sharedFile.mimeType ?? _getMimeType(finalName);
 
         // Generate a local ID and copy file to cache immediately
         const uuid = Uuid();
@@ -231,7 +240,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
 
         final newFile = QuireFileModel(
           name: name,
-          mimeType: 'application/pdf',
+          mimeType: _getMimeType(name),
           folderId: folderId,
           addedAt: DateTime.now().millisecondsSinceEpoch,
           tags: [],
@@ -257,17 +266,45 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     final driveService = ref.read(driveServiceProvider);
     if (!driveService.isReady) return;
 
-    final pendingFiles = state.files.entries.where((e) => e.value.syncStatus == 'pending').toList();
-    if (pendingFiles.isEmpty) return;
-
     try {
-      final rootId = await driveService.createVisibleFolder('Quire Inbox', null);
+      final rootId = await driveService.getOrCreateQuireRootFolder();
       final dir = await getApplicationDocumentsDirectory();
       final cacheDir = Directory('${dir.path}/pdf_cache');
       
       bool dbChanged = false;
+      final updatedFolders = Map<String, FolderModel>.from(state.folders);
       final updatedFiles = Map<String, QuireFileModel>.from(state.files);
 
+      // 1. Sync Folders
+      final pendingFolders = state.folders.entries.where((e) => e.value.syncStatus == 'pending').toList();
+      for (var entry in pendingFolders) {
+        final folderId = entry.key;
+        final folderModel = entry.value;
+        
+        try {
+          String parentDriveId = rootId;
+          if (folderModel.parentId != null) {
+            final parentFolder = updatedFolders[folderModel.parentId];
+            if (parentFolder != null && parentFolder.driveId != null) {
+              parentDriveId = parentFolder.driveId!;
+            } else {
+              continue; // Parent not synced yet, skip for now
+            }
+          }
+          
+          final driveId = await driveService.createVisibleFolder(folderModel.name, parentDriveId);
+          updatedFolders[folderId] = folderModel.copyWith(
+            driveId: driveId,
+            syncStatus: 'synced',
+          );
+          dbChanged = true;
+        } catch (e) {
+          print('Folder sync failed for $folderId: $e');
+        }
+      }
+
+      // 2. Sync Files
+      final pendingFiles = state.files.entries.where((e) => e.value.syncStatus == 'pending').toList();
       for (var entry in pendingFiles) {
         final localId = entry.key;
         final fileModel = entry.value;
@@ -275,11 +312,21 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
         final localFile = File('${cacheDir.path}/$localId.pdf');
         if (await localFile.exists()) {
           try {
+            String parentDriveId = rootId;
+            if (fileModel.folderId != null) {
+              final folder = updatedFolders[fileModel.folderId];
+              if (folder != null && folder.driveId != null) {
+                parentDriveId = folder.driveId!;
+              } else {
+                continue; // Parent folder not synced yet
+              }
+            }
+
             final driveFile = await driveService.uploadVisibleFile(
               localFile, 
               fileModel.mimeType, 
-              rootId,
-              customName: fileModel.name, // Pass the exact database name!
+              parentDriveId,
+              customName: fileModel.name,
             );
             
             if (driveFile.id != null) {
@@ -296,11 +343,47 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
       }
 
       if (dbChanged) {
-        state = state.copyWith(files: updatedFiles);
+        state = state.copyWith(folders: updatedFolders, files: updatedFiles);
         await ref.read(syncServiceProvider).saveAndSync(state);
       }
     } catch (e) {
-      print('Failed to sync pending files: $e');
+      print('Failed to sync pending items: $e');
+    }
+  }
+
+  Future<void> _moveFilesInDrive(Map<String, QuireFileModel> originalStates, String? newFolderId) async {
+    final driveService = ref.read(driveServiceProvider);
+    if (!driveService.isReady) return;
+    
+    try {
+      final rootId = await driveService.getOrCreateQuireRootFolder();
+      
+      String newParentDriveId = rootId;
+      if (newFolderId != null) {
+        final folder = state.folders[newFolderId];
+        if (folder != null && folder.driveId != null) {
+          newParentDriveId = folder.driveId!;
+        } else {
+          return; // Wait for next sync loop
+        }
+      }
+
+      for (var entry in originalStates.entries) {
+        final file = state.files[entry.key];
+        final originalFile = entry.value;
+        if (file != null && file.driveId != null) {
+          String oldParentDriveId = rootId;
+          if (originalFile.folderId != null) {
+             final oldFolder = state.folders[originalFile.folderId];
+             if (oldFolder != null && oldFolder.driveId != null) {
+               oldParentDriveId = oldFolder.driveId!;
+             }
+          }
+          await driveService.moveVisibleItem(file.driveId!, oldParentDriveId, newParentDriveId);
+        }
+      }
+    } catch (e) {
+      print('Drive move failed: $e');
     }
   }
 
@@ -321,6 +404,8 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     state = state.copyWith(files: updatedFiles);
     ref.read(syncServiceProvider).saveAndSync(state);
 
+    _moveFilesInDrive(originalStates, newFolderId);
+
     // Return an undo function
     return () async {
       final undoFiles = Map<String, QuireFileModel>.from(state.files);
@@ -338,10 +423,32 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     if (!state.folders.containsKey(folderId)) return;
     
     final updatedFolders = Map<String, FolderModel>.from(state.folders);
-    updatedFolders[folderId] = updatedFolders[folderId]!.copyWith(name: newName);
+    final folder = updatedFolders[folderId]!;
+    updatedFolders[folderId] = folder.copyWith(name: newName);
     
     state = state.copyWith(folders: updatedFolders);
     await ref.read(syncServiceProvider).saveAndSync(state);
+
+    if (folder.driveId != null) {
+      final driveService = ref.read(driveServiceProvider);
+      if (driveService.isReady) {
+        try {
+          await driveService.renameVisibleItem(folder.driveId!, newName);
+        } catch (e) {}
+      }
+    }
+  }
+
+  String _getMimeType(String name) {
+    final ext = name.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'pdf': return 'application/pdf';
+      case 'doc': return 'application/msword';
+      case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'ppt': return 'application/vnd.ms-powerpoint';
+      case 'pptx': return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      default: return 'application/octet-stream';
+    }
   }
 
 

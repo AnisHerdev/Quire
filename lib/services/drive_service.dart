@@ -156,6 +156,24 @@ class DriveService {
     }
   }
 
+  Future<String> getOrCreateQuireRootFolder() async {
+    // Option A Migration: Rename 'Quire Inbox' to 'Quire' if it exists.
+    try {
+      final driveApi = await _getDriveApi();
+      final query = "name='Quire Inbox' and mimeType='application/vnd.google-apps.folder' and 'root' in parents and trashed=false";
+      final fileList = await driveApi.files.list(q: query, spaces: 'drive');
+      if (fileList.files != null && fileList.files!.isNotEmpty) {
+        final inboxFolder = fileList.files!.first;
+        final updateFile = drive.File()..name = 'Quire';
+        await driveApi.files.update(updateFile, inboxFolder.id!);
+      }
+    } catch (e) {
+      print('Migration check failed (safe to ignore if not applicable): $e');
+    }
+
+    return await createVisibleFolder('Quire', null);
+  }
+
   Future<drive.File> uploadVisibleFile(File localFile, String mimeType, String parentId, {String? customName}) async {
     try {
       final driveApi = await _getDriveApi();
@@ -177,6 +195,30 @@ class DriveService {
       return createdFile;
     } catch (e) {
       throw Exception('Failed to upload file to visible drive: $e');
+    }
+  }
+
+  Future<void> moveVisibleItem(String itemId, String? oldParentId, String newParentId) async {
+    try {
+      final driveApi = await _getDriveApi();
+      await driveApi.files.update(
+        drive.File(),
+        itemId,
+        addParents: newParentId,
+        removeParents: oldParentId,
+      );
+    } catch (e) {
+      throw Exception('Failed to move item in Google Drive: $e');
+    }
+  }
+
+  Future<void> renameVisibleItem(String itemId, String newName) async {
+    try {
+      final driveApi = await _getDriveApi();
+      final updateFile = drive.File()..name = newName;
+      await driveApi.files.update(updateFile, itemId);
+    } catch (e) {
+      throw Exception('Failed to rename item in Google Drive: $e');
     }
   }
 

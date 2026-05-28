@@ -54,6 +54,7 @@ dependencies:
   timeago: ^3.7.1
   file_picker: ^11.0.2
   reorderable_grid_view: ^2.2.8
+  open_filex: ^4.5.2
 
 dev_dependencies:
   flutter_test:
