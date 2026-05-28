@@ -11,6 +11,7 @@ import '../providers/auth_provider.dart';
 import '../widgets/expandable_fab.dart';
 import '../widgets/move_file_dialog.dart';
 import '../widgets/bottom_nav_bar.dart';
+import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 class DirectoryScreen extends ConsumerStatefulWidget {
   final String folderId;
@@ -27,6 +28,8 @@ class DirectoryScreen extends ConsumerStatefulWidget {
 }
 
 class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
+  final GlobalKey<ExpandableFabState> _fabKey = GlobalKey<ExpandableFabState>();
+
   void _showAddFolderDialog() {
     final controller = TextEditingController();
     showDialog(
@@ -455,7 +458,7 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                 if (childFolders.isNotEmpty) ...[
                   Text('Folders', style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
                   const SizedBox(height: 12),
-                  GridView.builder(
+                  ReorderableGridView.builder(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: 16,
@@ -465,9 +468,20 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: childFolders.length,
+                    onReorder: (oldIndex, newIndex) {
+                      final folder = childFolders.removeAt(oldIndex);
+                      childFolders.insert(newIndex, folder);
+                      ref.read(databaseProvider.notifier).reorderFolders(
+                        childFolders.map((f) => f.id).toList()
+                      );
+                    },
                     itemBuilder: (context, index) {
                       final child = childFolders[index];
-                      return _buildFolderCard(context, child);
+                      return _buildFolderCard(
+                        key: ValueKey(child.id),
+                        context: context, 
+                        childFolder: child,
+                      );
                     },
                   ),
                   const SizedBox(height: 32),
@@ -491,16 +505,23 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
             ],
           ),
           ExpandableFab(
+            key: _fabKey,
             distance: 64.0,
             children: [
               if (widget.depth < 3)
                 ActionButton(
-                  onPressed: _showAddFolderDialog,
+                  onPressed: () {
+                    _fabKey.currentState?.close();
+                    _showAddFolderDialog();
+                  },
                   icon: const Icon(Icons.create_new_folder),
                   label: 'Add Folder',
                 ),
               ActionButton(
-                onPressed: _pickAndUploadFiles,
+                onPressed: () {
+                  _fabKey.currentState?.close();
+                  _pickAndUploadFiles();
+                },
                 icon: const Icon(Icons.upload_file),
                 label: 'Upload File',
               ),
@@ -512,11 +533,16 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
     );
   }
 
-  Widget _buildFolderCard(BuildContext context, FolderModel childFolder) {
+  Widget _buildFolderCard({
+    Key? key,
+    required BuildContext context, 
+    required FolderModel childFolder,
+  }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     
     return InkWell(
+      key: key,
       onTap: () {
         context.push('/folder/${childFolder.id}', extra: widget.depth + 1);
       },

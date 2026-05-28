@@ -62,6 +62,18 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     await ref.read(syncServiceProvider).saveAndSync(state);
   }
 
+  Future<void> reorderFolders(List<String> folderIds) async {
+    final updatedFolders = Map<String, FolderModel>.from(state.folders);
+    for (int i = 0; i < folderIds.length; i++) {
+      final id = folderIds[i];
+      if (updatedFolders.containsKey(id)) {
+        updatedFolders[id] = updatedFolders[id]!.copyWith(order: i);
+      }
+    }
+    state = state.copyWith(folders: updatedFolders);
+    await ref.read(syncServiceProvider).saveAndSync(state);
+  }
+
   Future<void> deleteFolder(String folderId, {bool keepFiles = false}) async {
     // 1. Find all child folders recursively
     final foldersToDelete = <String>{folderId};

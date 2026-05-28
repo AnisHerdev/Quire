@@ -66,6 +66,29 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
   bool _showToolbar = true;
   Timer? _toolbarHideTimer;
 
+  int _currentPage = 1;
+  int _pageCount = 1;
+  bool _isScrollbarVisible = false;
+  Timer? _scrollbarHideTimer;
+
+  void _showScrollbarTemporarily({bool cancelTimer = false}) {
+    if (mounted) {
+      setState(() {
+        _isScrollbarVisible = true;
+      });
+      _scrollbarHideTimer?.cancel();
+      if (!cancelTimer) {
+        _scrollbarHideTimer = Timer(const Duration(milliseconds: 1500), () {
+          if (mounted) {
+            setState(() {
+              _isScrollbarVisible = false;
+            });
+          }
+        });
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -82,6 +105,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
 
   @override
   void dispose() {
+    _scrollbarHideTimer?.cancel();
     _toolbarHideTimer?.cancel();
     if (_isFullscreen) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -329,6 +353,17 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
                     canShowScrollHead: false,
                     canShowScrollStatus: false,
                     pageSpacing: 8,
+                    onDocumentLoaded: (PdfDocumentLoadedDetails details) {
+                      setState(() {
+                        _pageCount = details.document.pages.count;
+                      });
+                    },
+                    onPageChanged: (PdfPageChangedDetails details) {
+                      setState(() {
+                        _currentPage = details.newPageNumber;
+                      });
+                      _showScrollbarTemporarily();
+                    },
                   ),
                 ),
               ),
@@ -389,11 +424,106 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
                     ),
                   ),
                 ),
-          ),
-          ),
+              ),
+            ),
+          if (_pdfBytes != null) _buildCustomScrollbar(context),
         ],
       ),
     ));
+  }
+
+  Widget _buildCustomScrollbar(BuildContext context) {
+    if (_pageCount <= 1 || _isFullscreen) return const SizedBox.shrink();
+    
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+      right: _isScrollbarVisible ? 0 : -40,
+      top: 100,
+      bottom: 100,
+      width: 50,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final double trackHeight = constraints.maxHeight;
+          double thumbHeight = trackHeight / _pageCount;
+          if (thumbHeight < 30.0) thumbHeight = 30.0;
+          if (thumbHeight > trackHeight) thumbHeight = trackHeight;
+          final double usableHeight = trackHeight - thumbHeight;
+          final double progress = (_currentPage - 1) / (_pageCount - 1 > 0 ? _pageCount - 1 : 1);
+          final double thumbTop = progress * usableHeight;
+
+          return GestureDetector(
+            onVerticalDragDown: (details) {
+              _showScrollbarTemporarily(cancelTimer: true);
+            },
+            onVerticalDragUpdate: (details) {
+              _showScrollbarTemporarily(cancelTimer: true);
+              double localY = details.localPosition.dy;
+              double newProgress = (localY - thumbHeight / 2) / usableHeight;
+              newProgress = newProgress.clamp(0.0, 1.0);
+              int newPage = (newProgress * (_pageCount - 1)).round() + 1;
+              if (newPage != _currentPage) {
+                _pdfViewerController.jumpToPage(newPage);
+                setState(() {
+                  _currentPage = newPage;
+                });
+              }
+            },
+            onVerticalDragEnd: (details) {
+              _showScrollbarTemporarily();
+            },
+            onVerticalDragCancel: () {
+              _showScrollbarTemporarily();
+            },
+            child: Container(
+              color: Colors.transparent, // Hit area
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: thumbTop,
+                    right: 4,
+                    child: Container(
+                      width: 4,
+                      height: thumbHeight,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: thumbTop + (thumbHeight / 2) - 14,
+                    right: 16,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        '$_currentPage / $_pageCount',
+                        style: TextStyle(
+                          fontSize: 12, 
+                          color: Theme.of(context).colorScheme.onPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildDefaultToolbar(BuildContext context) {

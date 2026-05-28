@@ -10,6 +10,7 @@ import '../models/database_model.dart';
 import '../widgets/expandable_fab.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +20,8 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final GlobalKey<ExpandableFabState> _fabKey = GlobalKey<ExpandableFabState>();
+
   @override
   void initState() {
     super.initState();
@@ -368,7 +371,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   )
                 else
-                  GridView.builder(
+                  ReorderableGridView.builder(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: 16,
@@ -378,9 +381,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: rootFolders.length,
+                    onReorder: (oldIndex, newIndex) {
+                      final folder = rootFolders.removeAt(oldIndex);
+                      rootFolders.insert(newIndex, folder);
+                      ref.read(databaseProvider.notifier).reorderFolders(
+                        rootFolders.map((f) => f.id).toList()
+                      );
+                    },
                     itemBuilder: (context, index) {
                       final folder = rootFolders[index];
                       return _buildFolderCard(
+                        key: ValueKey(folder.id),
                         context: context, 
                         folder: folder, 
                       );
@@ -390,10 +401,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
           ExpandableFab(
+            key: _fabKey,
             distance: 64.0,
             children: [
               ActionButton(
                 onPressed: () {
+                  _fabKey.currentState?.close();
                   _showAddFolderDialog();
                 },
                 icon: const Icon(Icons.create_new_folder),
@@ -401,6 +414,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               ActionButton(
                 onPressed: () {
+                  _fabKey.currentState?.close();
                   _pickAndUploadFiles();
                 },
                 icon: const Icon(Icons.upload_file),
@@ -415,6 +429,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildFolderCard({
+    Key? key,
     required BuildContext context,
     required FolderModel folder,
   }) {
@@ -422,6 +437,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final colorScheme = theme.colorScheme;
     
     return InkWell(
+      key: key,
       onTap: () {
         context.push('/folder/${folder.id}', extra: 1); // Depth is 1 for children of root folders
       },
