@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../providers/database_provider.dart';
@@ -333,14 +334,21 @@ class _OfflineFilesScreenState extends ConsumerState<OfflineFilesScreen> {
   Widget _buildFileListItem(_CachedFileInfo file, ColorScheme colorScheme, TextTheme textTheme) {
     final iconColor = _colorForMime(file.mimeType, colorScheme);
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.surfaceContainerHighest),
-      ),
-      child: Row(
+    return InkWell(
+      onTap: () {
+        if (file.mimeType == 'application/pdf') {
+          context.push('/pdf-viewer/${file.fileId}');
+        }
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colorScheme.surfaceContainerHighest),
+        ),
+        child: Row(
         children: [
           Container(
             width: 48,
@@ -407,13 +415,19 @@ class _OfflineFilesScreenState extends ConsumerState<OfflineFilesScreen> {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildGridFileCard(_CachedFileInfo file, ColorScheme colorScheme, TextTheme textTheme) {
     final iconColor = _colorForMime(file.mimeType, colorScheme);
 
     return InkWell(
+      onTap: () {
+        if (file.mimeType == 'application/pdf') {
+          context.push('/pdf-viewer/${file.fileId}');
+        }
+      },
       onLongPress: () => _deleteFile(file.fileId, file.name),
       borderRadius: BorderRadius.circular(16),
       child: Container(

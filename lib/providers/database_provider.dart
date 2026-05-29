@@ -9,6 +9,16 @@ import '../utils/duplicate_filename.dart';
 import 'auth_provider.dart';
 import 'drive_provider.dart';
 
+class _SyncInProgress extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void start() => state = true;
+  void stop() => state = false;
+}
+
+final syncInProgressProvider = NotifierProvider<_SyncInProgress, bool>(_SyncInProgress.new);
+
 final databaseProvider = NotifierProvider<DatabaseNotifier, QuireDatabase>(
   DatabaseNotifier.new,
 );
@@ -58,17 +68,23 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
   }
 
   Future<void> _performBackgroundSync() async {
-    final syncService = ref.read(syncServiceProvider);
-    final before = state;
-    final result = await syncService.syncWithCloud(before);
+    ref.read(syncInProgressProvider.notifier).start();
+    try {
+      final syncService = ref.read(syncServiceProvider);
+      final before = state;
+      final result = await syncService.syncWithCloud(before);
 
-    // If state was modified during the network call (e.g., share callback
-    // added files), the in-memory state is newer — don't overwrite it.
-    // The concurrent modification's saveAndSync already pushed to cloud.
-    if (state.syncMetadata.lastSyncedAt <= before.syncMetadata.lastSyncedAt) {
-      state = result;
+      // If state was modified during the network call (e.g., share callback
+      // added files), the in-memory state is newer — don't overwrite it.
+      // The concurrent modification's saveAndSync already pushed to cloud.
+      if (state.syncMetadata.lastSyncedAt <= before.syncMetadata.lastSyncedAt) {
+        state = result;
+      }
+    } finally {
+      ref.read(syncInProgressProvider.notifier).stop();
     }
   }
+
 
   Future<void> addFolder(
     String name,

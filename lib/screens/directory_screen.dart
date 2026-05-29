@@ -14,6 +14,7 @@ import '../widgets/move_file_dialog.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../providers/thumbnail_provider.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DirectoryScreen extends ConsumerStatefulWidget {
   final String folderId;
@@ -187,7 +188,27 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
 
   bool _isEditMode = false;
   bool _isGridMode = false;
+  bool _viewPrefLoaded = false;
   Set<String> _selectedItems = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGridPreference();
+  }
+
+  Future<void> _loadGridPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getBool('dir_view_mode');
+    if (saved != null && mounted) {
+      setState(() {
+        _isGridMode = saved;
+        _viewPrefLoaded = true;
+      });
+    } else if (mounted) {
+      setState(() => _viewPrefLoaded = true);
+    }
+  }
 
   void _toggleSelection(String itemId) {
     setState(() {
@@ -345,6 +366,14 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
               },
             ),
             ListTile(
+              leading: Icon(Icons.label, color: colorScheme.primary),
+              title: Text('Edit Tags', style: TextStyle(color: colorScheme.primary)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showEditFolderTagsDialog(folderId, folder);
+              },
+            ),
+            ListTile(
               leading: Icon(Icons.delete, color: colorScheme.error),
               title: Text('Delete Folder', style: TextStyle(color: colorScheme.error)),
               onTap: () {
@@ -416,6 +445,102 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
             child: const Text('Delete Folder & Files'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showEditFolderTagsDialog(String folderId, FolderModel folder) {
+    final tagController = TextEditingController();
+    final selectedTags = List<String>.from(folder.associatedTags);
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Tags for '),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: tagController,
+                      decoration: const InputDecoration(
+                        labelText: 'Add Tag',
+                        hintText: 'Enter tag...',
+                        isDense: true,
+                      ),
+                      onSubmitted: (value) {
+                        final tag = value.trim().toUpperCase();
+                        if (tag.isNotEmpty && !selectedTags.contains(tag)) {
+                          setDialogState(() {
+                            selectedTags.add(tag);
+                            tagController.clear();
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      final tag = tagController.text.trim().toUpperCase();
+                      if (tag.isNotEmpty && !selectedTags.contains(tag)) {
+                        setDialogState(() {
+                          selectedTags.add(tag);
+                          tagController.clear();
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.add_circle_outline, size: 20),
+                  ),
+                ],
+              ),
+              if (selectedTags.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: selectedTags
+                      .map(
+                        (tag) => Chip(
+                          label: Text(
+                            tag,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          deleteIcon: const Icon(Icons.close, size: 16),
+                          onDeleted: () =>
+                              setDialogState(() => selectedTags.remove(tag)),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final updatedFolders = Map<String, FolderModel>.from(
+                  ref.read(databaseProvider).folders,
+                );
+                updatedFolders[folderId] = folder.copyWith(
+                  associatedTags: selectedTags,
+                );
+                ref
+                    .read(databaseProvider.notifier)
+                    .updateFolderState(updatedFolders);
+                Navigator.pop(context);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
       ),
     );
   }
