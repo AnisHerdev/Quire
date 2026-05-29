@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 class SyncMetadata {
   final int lastSyncedAt;
   final String version;
@@ -161,11 +159,13 @@ class QuireDatabase {
   final SyncMetadata syncMetadata;
   final Map<String, FolderModel> folders;
   final Map<String, QuireFileModel> files;
+  final Set<String> allTags;
 
   const QuireDatabase({
     required this.syncMetadata,
     required this.folders,
     required this.files,
+    this.allTags = const {},
   });
 
   factory QuireDatabase.empty() {
@@ -189,6 +189,7 @@ class QuireDatabase {
 
     final foldersJson = json['folders'] as Map<String, dynamic>? ?? {};
     final filesJson = json['files'] as Map<String, dynamic>? ?? {};
+    final tagsList = json['allTags'] as List<dynamic>? ?? [];
 
     return QuireDatabase(
       syncMetadata: syncMetaJson != null 
@@ -196,6 +197,7 @@ class QuireDatabase {
           : SyncMetadata(lastSyncedAt: 0, version: '2.0'),
       folders: foldersJson.map((k, v) => MapEntry(k, FolderModel.fromJson(v as Map<String, dynamic>))),
       files: filesJson.map((k, v) => MapEntry(k, QuireFileModel.fromJson(v as Map<String, dynamic>))),
+      allTags: tagsList.map((e) => e.toString()).toSet(),
     );
   }
 
@@ -203,17 +205,20 @@ class QuireDatabase {
         'syncMetadata': syncMetadata.toJson(),
         'folders': folders.map((k, v) => MapEntry(k, v.toJson())),
         'files': files.map((k, v) => MapEntry(k, v.toJson())),
+        'allTags': allTags.toList(),
       };
 
   QuireDatabase copyWith({
     SyncMetadata? syncMetadata,
     Map<String, FolderModel>? folders,
     Map<String, QuireFileModel>? files,
+    Set<String>? allTags,
   }) {
     return QuireDatabase(
       syncMetadata: syncMetadata ?? this.syncMetadata,
       folders: folders ?? this.folders,
       files: files ?? this.files,
+      allTags: allTags ?? this.allTags,
     );
   }
 }
