@@ -14,7 +14,7 @@ import '../widgets/move_file_dialog.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../providers/thumbnail_provider.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../providers/view_mode_provider.dart';
 
 class DirectoryScreen extends ConsumerStatefulWidget {
   final String folderId;
@@ -34,31 +34,105 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
   final GlobalKey<ExpandableFabState> _fabKey = GlobalKey<ExpandableFabState>();
 
   void _showAddFolderDialog() {
-    final controller = TextEditingController();
+    final nameController = TextEditingController();
+    final tagController = TextEditingController();
+    final selectedTags = <String>{};
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Folder'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: 'Folder Name'),
-          autofocus: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add Folder'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Folder Name',
+                  hintText: 'e.g. Workspace',
+                ),
+                autofocus: true,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: tagController,
+                      decoration: const InputDecoration(
+                        labelText: 'Tags',
+                        hintText: 'Add tag...',
+                        isDense: true,
+                      ),
+                      onSubmitted: (value) {
+                        final tag = value.trim().toUpperCase();
+                        if (tag.isNotEmpty && !selectedTags.contains(tag)) {
+                          setDialogState(() {
+                            selectedTags.add(tag);
+                            tagController.clear();
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      final tag = tagController.text.trim().toUpperCase();
+                      if (tag.isNotEmpty && !selectedTags.contains(tag)) {
+                        setDialogState(() {
+                          selectedTags.add(tag);
+                          tagController.clear();
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.add_circle_outline, size: 20),
+                  ),
+                ],
+              ),
+              if (selectedTags.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: selectedTags
+                      .map(
+                        (tag) => Chip(
+                          label: Text(
+                            tag,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          deleteIcon: const Icon(Icons.close, size: 16),
+                          onDeleted: () =>
+                              setDialogState(() => selectedTags.remove(tag)),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (nameController.text.isNotEmpty) {
+                  ref.read(databaseProvider.notifier).addFolder(
+                    nameController.text,
+                    widget.folderId,
+                    associatedTags: selectedTags.toList(),
+                  );
+                }
+                Navigator.pop(context);
+              },
+              child: const Text('Create'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                ref.read(databaseProvider.notifier).addFolder(controller.text, widget.folderId);
-              }
-              Navigator.pop(context);
-            },
-            child: const Text('Create'),
-          ),
-        ],
       ),
     );
   }
@@ -187,27 +261,12 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
   }
 
   bool _isEditMode = false;
-  bool _isGridMode = false;
-  bool _viewPrefLoaded = false;
   Set<String> _selectedItems = {};
 
   @override
   void initState() {
     super.initState();
-    _loadGridPreference();
-  }
-
-  Future<void> _loadGridPreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getBool('dir_view_mode');
-    if (saved != null && mounted) {
-      setState(() {
-        _isGridMode = saved;
-        _viewPrefLoaded = true;
-      });
-    } else if (mounted) {
-      setState(() => _viewPrefLoaded = true);
-    }
+    ref.read(fileViewModeProvider.notifier).init();
   }
 
   void _toggleSelection(String itemId) {
@@ -644,12 +703,11 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
               ),
               actions: [
                 IconButton(
-                  icon: Icon(_isGridMode ? Icons.view_list : Icons.grid_view, color: colorScheme.onSurfaceVariant),
-                  onPressed: () {
-                    setState(() {
-                      _isGridMode = !_isGridMode;
-                    });
-                  },
+                  icon: Icon(
+                    ref.watch(fileViewModeProvider) ? Icons.view_list : Icons.grid_view,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  onPressed: () => ref.read(fileViewModeProvider.notifier).toggle(),
                 ),
                 IconButton(
                   icon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
@@ -762,7 +820,7 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                 if (childFiles.isNotEmpty) ...[
                   Text('Files', style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.primary)),
                   const SizedBox(height: 12),
-                  if (!_isGridMode)
+                  if (!ref.watch(fileViewModeProvider))
                     ListView.separated(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),

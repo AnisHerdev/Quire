@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../providers/database_provider.dart';
+import '../providers/view_mode_provider.dart';
 import '../services/cache_service.dart';
 
 class OfflineFilesScreen extends ConsumerStatefulWidget {
@@ -18,11 +19,11 @@ class _OfflineFilesScreenState extends ConsumerState<OfflineFilesScreen> {
   List<_CachedFileInfo> _cachedFiles = [];
   String _cacheSize = 'Calculating...';
   bool _loading = true;
-  bool _useGridView = false;
 
   @override
   void initState() {
     super.initState();
+    ref.read(fileViewModeProvider.notifier).init();
     WidgetsBinding.instance.addPostFrameCallback((_) => _refreshData());
   }
 
@@ -137,8 +138,11 @@ class _OfflineFilesScreenState extends ConsumerState<OfflineFilesScreen> {
         title: Text('Offline Files', style: textTheme.headlineMedium?.copyWith(color: colorScheme.primary)),
         actions: [
           IconButton(
-            icon: Icon(_useGridView ? Icons.list : Icons.grid_view, color: colorScheme.onSurfaceVariant),
-            onPressed: () => setState(() => _useGridView = !_useGridView),
+            icon: Icon(
+              ref.watch(fileViewModeProvider) ? Icons.list : Icons.grid_view,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            onPressed: () => ref.read(fileViewModeProvider.notifier).toggle(),
           ),
           IconButton(
             icon: Icon(Icons.refresh, color: colorScheme.onSurfaceVariant),
@@ -184,7 +188,7 @@ class _OfflineFilesScreenState extends ConsumerState<OfflineFilesScreen> {
 
                     if (_cachedFiles.isEmpty)
                       _buildEmptyState(colorScheme, textTheme)
-                    else if (_useGridView)
+                    else if (ref.watch(fileViewModeProvider))
                       _buildGridView(colorScheme, textTheme)
                     else
                       _buildListView(colorScheme, textTheme),

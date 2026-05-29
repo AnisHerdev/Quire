@@ -13,7 +13,6 @@ import '../widgets/expandable_fab.dart';
 import '../widgets/tag_picker_sheet.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -26,7 +25,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final GlobalKey<ExpandableFabState> _fabKey = GlobalKey<ExpandableFabState>();
 
   bool _isEditMode = false;
-  bool _isGridView = true;
   Set<String> _selectedItems = {};
 
   Future<List<SharedMediaFile>> _copySharedFilesToImportCache(
@@ -160,7 +158,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadViewPreference();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // Initialize the database (loads cache instantly, then syncs to cloud)
@@ -257,23 +254,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           await _deleteImportCopies(stableFiles);
         }
       });
-    });
-  }
-
-  Future<void> _loadViewPreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getBool('home_view_mode');
-    if (saved != null && mounted) {
-      setState(() => _isGridView = saved);
-    }
-  }
-
-  void _toggleViewMode() {
-    setState(() {
-      _isGridView = !_isGridView;
-    });
-    SharedPreferences.getInstance().then((prefs) {
-      prefs.setBool('home_view_mode', _isGridView);
     });
   }
 
@@ -647,117 +627,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildFoldersSection(
-    List<FolderModel> folders,
-    ColorScheme colorScheme,
-    TextTheme textTheme,
-  ) {
-    if (_isGridView) {
-      return GridView.builder(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 1.0,
-        ),
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: folders.length,
-        itemBuilder: (context, index) {
-          final folder = folders[index];
-          return _buildFolderCard(
-            key: ValueKey(folder.id),
-            context: context,
-            folder: folder,
-            index: index,
-          );
-        },
-      );
-    }
-
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: folders.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final folder = folders[index];
-        return _buildFolderListTile(context, folder);
-      },
-    );
-  }
-
-  Widget _buildFolderListTile(BuildContext context, FolderModel folder) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
-
-    return InkWell(
-      onTap: () {
-        context.push('/folder/', extra: 1);
-      },
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: colorScheme.surfaceVariant),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainer,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(Icons.folder_special, color: colorScheme.primary),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    folder.name,
-                    style: theme.textTheme.titleMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        folder.syncStatus == 'synced'
-                            ? Icons.cloud_done
-                            : Icons.cloud_upload,
-                        size: 14,
-                        color: colorScheme.outline,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        folder.syncStatus == 'synced' ? 'Synced' : 'Pending',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.outline,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            IconButton(
-              icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant),
-              onPressed: () => _showFolderOptions(context, folder.id, folder),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -826,20 +695,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
                 actions: [
-                  IconButton(
-                    icon: Icon(
-                      _isGridView ? Icons.view_list : Icons.grid_view,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    onPressed: _toggleViewMode,
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.settings,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    onPressed: () {},
-                  ),
                   const SizedBox(width: 8),
                   CircleAvatar(
                     radius: 16,
@@ -932,7 +787,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     )
                   else if (!_isEditMode)
-                    _buildFoldersSection(rootFolders, colorScheme, textTheme)
+                    GridView.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            childAspectRatio: 1.0,
+                          ),
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: rootFolders.length,
+                      itemBuilder: (context, index) {
+                        final folder = rootFolders[index];
+                        return _buildFolderCard(
+                          key: ValueKey(folder.id),
+                          context: context,
+                          folder: folder,
+                          index: index,
+                        );
+                      },
+                    )
                   else
                     ReorderableGridView.builder(
                       gridDelegate:
