@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../providers/database_provider.dart';
 import '../providers/auth_provider.dart';
@@ -21,9 +23,74 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final GlobalKey<ExpandableFabState> _fabKey = GlobalKey<ExpandableFabState>();
-  
+
   bool _isEditMode = false;
   Set<String> _selectedItems = {};
+
+  Future<List<SharedMediaFile>> _copySharedFilesToImportCache(
+    List<SharedMediaFile> files,
+  ) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final importDir = Directory('${dir.path}/share_imports');
+    if (!await importDir.exists()) {
+      await importDir.create(recursive: true);
+    }
+
+    final copiedFiles = <SharedMediaFile>[];
+    for (var i = 0; i < files.length; i++) {
+      final sharedFile = files[i];
+      final sourceFile = File(sharedFile.path);
+      if (!await sourceFile.exists()) continue;
+
+      final originalName = sharedFile.path.split(Platform.pathSeparator).last;
+      final extension = originalName.contains('.')
+          ? originalName.substring(originalName.lastIndexOf('.'))
+          : '';
+      final importPath =
+          '${importDir.path}/${DateTime.now().microsecondsSinceEpoch}_$i$extension';
+      await sourceFile.copy(importPath);
+
+      copiedFiles.add(
+        SharedMediaFile(
+          path: importPath,
+          type: sharedFile.type,
+          thumbnail: sharedFile.thumbnail,
+          duration: sharedFile.duration,
+          mimeType: sharedFile.mimeType,
+          message: sharedFile.message,
+        ),
+      );
+    }
+
+    return copiedFiles;
+  }
+
+  Future<bool> _hasExistingFileForName(String name) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final cacheDir = Directory('${dir.path}/pdf_cache');
+    final database = ref.read(databaseProvider);
+
+    for (final entry in database.files.entries) {
+      if (entry.value.name.toLowerCase() != name.toLowerCase()) continue;
+      if (entry.value.driveId != null) return true;
+
+      final cachedFile = File('${cacheDir.path}/${entry.key}.pdf');
+      if (await cachedFile.exists()) return true;
+    }
+
+    return false;
+  }
+
+  Future<void> _deleteImportCopies(List<SharedMediaFile> files) async {
+    for (final file in files) {
+      try {
+        final localFile = File(file.path);
+        if (await localFile.exists()) {
+          await localFile.delete();
+        }
+      } catch (_) {}
+    }
+  }
 
   void _toggleSelection(String itemId) {
     setState(() {
@@ -48,7 +115,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Folders'),
-        content: const Text('What would you like to do with the files inside these folders?'),
+        content: const Text(
+          'What would you like to do with the files inside these folders?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -57,7 +126,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           TextButton(
             onPressed: () {
               for (var id in _selectedItems) {
-                ref.read(databaseProvider.notifier).deleteFolder(id, keepFiles: true);
+                ref
+                    .read(databaseProvider.notifier)
+                    .deleteFolder(id, keepFiles: true);
               }
               Navigator.pop(context);
               _clearSelection();
@@ -65,10 +136,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: const Text('Keep Contents (Move to Inbox)'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
             onPressed: () {
               for (var id in _selectedItems) {
-                ref.read(databaseProvider.notifier).deleteFolder(id, keepFiles: false);
+                ref
+                    .read(databaseProvider.notifier)
+                    .deleteFolder(id, keepFiles: false);
               }
               Navigator.pop(context);
               _clearSelection();
@@ -87,120 +162,203 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (!mounted) return;
       // Initialize the database (loads cache instantly, then syncs to cloud)
       ref.read(databaseProvider.notifier).init();
-      
+
       // Initialize OS share sheet listener
       ref.read(sharingServiceProvider).init((files) async {
         if (!mounted || files.isEmpty) return;
 
+        final stableFiles = await _copySharedFilesToImportCache(files);
+        if (stableFiles.isEmpty) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Could not access the shared file. Please try sharing it again.',
+              ),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+
         // Extract a clean default name
-        String initialName = files.first.path.split(Platform.pathSeparator).last;
-        if (initialName.contains('share_') || initialName.contains(RegExp(r'[0-9]{10}'))) {
+        String initialName = files.first.path
+            .split(Platform.pathSeparator)
+            .last;
+        if (initialName.contains('share_') ||
+            initialName.contains(RegExp(r'[0-9]{10}'))) {
           initialName = 'Document.pdf';
         }
 
-        final customName = await showDialog<String>(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) {
-            final controller = TextEditingController(text: initialName);
-            return AlertDialog(
-              title: const Text('Save to Quire'),
-              content: TextField(
-                controller: controller,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Document Name',
-                  hintText: 'e.g., Biology Chapter 4',
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, null),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    var name = controller.text.trim();
-                    if (name.isEmpty) name = 'Untitled Document';
-                    if (!name.toLowerCase().endsWith('.pdf')) name += '.pdf';
-                    Navigator.pop(context, name);
-                  },
-                  child: const Text('Save'),
-                ),
-              ],
-            );
-          },
-        );
+        // Check for duplicate before showing the picker
+        final isDuplicate = await _hasExistingFileForName(initialName);
+        if (!mounted) {
+          await _deleteImportCopies(stableFiles);
+          return;
+        }
 
-        if (customName == null) return; // User cancelled
-
-        // Show tag picker for organization
-        if (!mounted) return;
         final tagResult = await showTagPickerSheet(
           context: context,
-          filename: customName,
+          filename: initialName,
+          isDuplicate: isDuplicate,
         );
 
-        if (tagResult == null) return; // User cancelled tag picker
-        if (!mounted) return;
+        if (tagResult == null) {
+          await _deleteImportCopies(stableFiles);
+          return;
+        }
+        if (!mounted) {
+          await _deleteImportCopies(stableFiles);
+          return;
+        }
 
-        final folderLabel = tagResult.folderName ?? 'Inbox';
+        final customName = tagResult.customName ?? initialName;
+
+        final folderLabel =
+            (tagResult.folderName != null && tagResult.folderName!.isNotEmpty)
+            ? tagResult.folderName!
+            : 'Inbox';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Saving "$customName" to $folderLabel...'),
             behavior: SnackBarBehavior.floating,
           ),
         );
-        
+
         try {
-          final namesList = List.filled(files.length, customName);
-          await ref.read(databaseProvider.notifier).processSharedFiles(
-            files,
-            customNames: namesList,
-            tags: tagResult.tags,
-            folderName: tagResult.folderName,
-          );
+          final namesList = List.filled(stableFiles.length, customName);
+          await ref
+              .read(databaseProvider.notifier)
+              .processSharedFiles(
+                stableFiles,
+                customNames: namesList,
+                tags: tagResult.folderTags,
+                folderName: tagResult.folderName,
+                replaceDuplicate: tagResult.replaceDuplicate,
+              );
         } catch (e) {
           if (mounted) {
+            final msg = (e is StateError && e.message.contains('authenticated'))
+                ? 'Please sign in to Quire first to save shared files.'
+                : 'Failed to save: ${e.toString()}';
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Please sign in to Quire first to save shared files.'),
+              SnackBar(
+                content: Text(msg),
                 behavior: SnackBarBehavior.floating,
                 backgroundColor: Colors.red,
               ),
             );
           }
+        } finally {
+          await _deleteImportCopies(stableFiles);
         }
       });
     });
   }
 
   void _showAddFolderDialog() {
-    final controller = TextEditingController();
+    final nameController = TextEditingController();
+    final tagController = TextEditingController();
+    final selectedTags = <String>{};
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Folder'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: 'e.g. Workspace'),
-          autofocus: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add Folder'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Folder Name',
+                  hintText: 'e.g. Workspace',
+                ),
+                autofocus: true,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: tagController,
+                      decoration: const InputDecoration(
+                        labelText: 'Tags',
+                        hintText: 'Add tag...',
+                        isDense: true,
+                      ),
+                      onSubmitted: (value) {
+                        final tag = value.trim().toUpperCase();
+                        if (tag.isNotEmpty && !selectedTags.contains(tag)) {
+                          setDialogState(() {
+                            selectedTags.add(tag);
+                            tagController.clear();
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      final tag = tagController.text.trim().toUpperCase();
+                      if (tag.isNotEmpty && !selectedTags.contains(tag)) {
+                        setDialogState(() {
+                          selectedTags.add(tag);
+                          tagController.clear();
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.add_circle_outline, size: 20),
+                  ),
+                ],
+              ),
+              if (selectedTags.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: selectedTags
+                      .map(
+                        (tag) => Chip(
+                          label: Text(
+                            tag,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          deleteIcon: const Icon(Icons.close, size: 16),
+                          onDeleted: () =>
+                              setDialogState(() => selectedTags.remove(tag)),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (nameController.text.isNotEmpty) {
+                  ref
+                      .read(databaseProvider.notifier)
+                      .addFolder(
+                        nameController.text,
+                        null,
+                        associatedTags: selectedTags.toList(),
+                      );
+                }
+                Navigator.pop(context);
+              },
+              child: const Text('Create'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                ref.read(databaseProvider.notifier).addFolder(controller.text, null);
-              }
-              Navigator.pop(context);
-            },
-            child: const Text('Create'),
-          ),
-        ],
       ),
     );
   }
@@ -224,7 +382,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (result != null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Processing ${result.files.length} file(s)...')),
+          SnackBar(
+            content: Text('Processing ${result.files.length} file(s)...'),
+          ),
         );
 
         final paths = <String>[];
@@ -238,7 +398,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         }
 
         if (paths.isNotEmpty) {
-          await ref.read(databaseProvider.notifier).addPickedFiles(paths, names, null);
+          await ref
+              .read(databaseProvider.notifier)
+              .addPickedFiles(paths, names, null);
         }
       }
     } catch (e) {
@@ -246,7 +408,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  void _showFolderOptions(BuildContext context, String folderId, FolderModel folder) {
+  void _showFolderOptions(
+    BuildContext context,
+    String folderId,
+    FolderModel folder,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
@@ -256,15 +422,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             ListTile(
               leading: Icon(Icons.edit, color: colorScheme.primary),
-              title: Text('Rename Folder', style: TextStyle(color: colorScheme.primary)),
+              title: Text(
+                'Rename Folder',
+                style: TextStyle(color: colorScheme.primary),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 _showRenameFolderDialog(folderId, folder);
               },
             ),
             ListTile(
+              leading: Icon(Icons.label, color: colorScheme.primary),
+              title: Text(
+                'Edit Tags',
+                style: TextStyle(color: colorScheme.primary),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showEditFolderTagsDialog(folderId, folder);
+              },
+            ),
+            ListTile(
               leading: Icon(Icons.delete, color: colorScheme.error),
-              title: Text('Delete Folder', style: TextStyle(color: colorScheme.error)),
+              title: Text(
+                'Delete Folder',
+                style: TextStyle(color: colorScheme.error),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 _showDeleteFolderDialog(folderId, folder);
@@ -296,7 +479,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onPressed: () {
               final newName = controller.text.trim();
               if (newName.isNotEmpty) {
-                ref.read(databaseProvider.notifier).renameFolder(folderId, newName);
+                ref
+                    .read(databaseProvider.notifier)
+                    .renameFolder(folderId, newName);
                 Navigator.pop(context);
               }
             },
@@ -307,12 +492,110 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  void _showEditFolderTagsDialog(String folderId, FolderModel folder) {
+    final tagController = TextEditingController();
+    final selectedTags = List<String>.from(folder.associatedTags);
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Tags for ${folder.name}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: tagController,
+                      decoration: const InputDecoration(
+                        labelText: 'Add Tag',
+                        hintText: 'Enter tag...',
+                        isDense: true,
+                      ),
+                      onSubmitted: (value) {
+                        final tag = value.trim().toUpperCase();
+                        if (tag.isNotEmpty && !selectedTags.contains(tag)) {
+                          setDialogState(() {
+                            selectedTags.add(tag);
+                            tagController.clear();
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      final tag = tagController.text.trim().toUpperCase();
+                      if (tag.isNotEmpty && !selectedTags.contains(tag)) {
+                        setDialogState(() {
+                          selectedTags.add(tag);
+                          tagController.clear();
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.add_circle_outline, size: 20),
+                  ),
+                ],
+              ),
+              if (selectedTags.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: selectedTags
+                      .map(
+                        (tag) => Chip(
+                          label: Text(
+                            tag,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          deleteIcon: const Icon(Icons.close, size: 16),
+                          onDeleted: () =>
+                              setDialogState(() => selectedTags.remove(tag)),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final updatedFolders = Map<String, FolderModel>.from(
+                  ref.read(databaseProvider).folders,
+                );
+                updatedFolders[folderId] = folder.copyWith(
+                  associatedTags: selectedTags,
+                );
+                ref
+                    .read(databaseProvider.notifier)
+                    .updateFolderState(updatedFolders);
+                Navigator.pop(context);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showDeleteFolderDialog(String folderId, FolderModel folder) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Folder'),
-        content: const Text('What would you like to do with the files inside this folder?'),
+        content: const Text(
+          'What would you like to do with the files inside this folder?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -320,15 +603,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           TextButton(
             onPressed: () {
-              ref.read(databaseProvider.notifier).deleteFolder(folderId, keepFiles: true);
+              ref
+                  .read(databaseProvider.notifier)
+                  .deleteFolder(folderId, keepFiles: true);
               Navigator.pop(context);
             },
             child: const Text('Keep Files (Move to Inbox)'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
             onPressed: () {
-              ref.read(databaseProvider.notifier).deleteFolder(folderId, keepFiles: false);
+              ref
+                  .read(databaseProvider.notifier)
+                  .deleteFolder(folderId, keepFiles: false);
               Navigator.pop(context);
             },
             child: const Text('Delete Folder & Files'),
@@ -346,13 +635,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final authState = ref.watch(authProvider);
     final database = ref.watch(databaseProvider);
-    
-    final rootFolders = database.folders.values
-        .where((f) => f.parentId == null)
-        .toList()
-      ..sort((a, b) => a.order.compareTo(b.order));
 
-    final inboxCount = database.files.values.where((f) => f.folderId == null).length;
+    final rootFolders =
+        database.folders.values.where((f) => f.parentId == null).toList()
+          ..sort((a, b) => a.order.compareTo(b.order));
+
+    final inboxCount = database.files.values
+        .where((f) => f.folderId == null)
+        .length;
 
     return PopScope(
       canPop: !_isEditMode,
@@ -363,204 +653,219 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       },
       child: Scaffold(
         backgroundColor: colorScheme.surface,
-      appBar: _isEditMode 
-        ? AppBar(
-            leading: IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: _clearSelection,
-            ),
-            title: Text('${_selectedItems.length} Selected'),
-            actions: [
-              if (_selectedItems.length == 1)
-                IconButton(
-                  icon: const Icon(Icons.edit),
-                  onPressed: () {
-                    final folder = database.folders[_selectedItems.first];
-                    if (folder != null) {
-                      _showRenameFolderDialog(_selectedItems.first, folder);
-                      _clearSelection();
-                    }
-                  },
+        appBar: _isEditMode
+            ? AppBar(
+                leading: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: _clearSelection,
                 ),
-              IconButton(
-                icon: const Icon(Icons.delete),
-                onPressed: () {
-                  if (_selectedItems.length == 1) {
-                    final folder = database.folders[_selectedItems.first];
-                    if (folder != null) {
-                      _showDeleteFolderDialog(_selectedItems.first, folder);
-                    }
-                  } else {
-                    _showDeleteMultipleDialog();
-                  }
-                },
-              ),
-            ],
-          )
-        : AppBar(
-            title: Text(
-              authState.user?.displayName ?? 'Quire',
-              style: textTheme.headlineMedium?.copyWith(
-                color: colorScheme.primary,
-              ),
-            ),
-            actions: [
-              IconButton(
-                icon: Icon(Icons.settings, color: colorScheme.onSurfaceVariant),
-                onPressed: () {},
-              ),
-              const SizedBox(width: 8),
-              CircleAvatar(
-                radius: 16,
-                backgroundImage: authState.user?.photoUrl.isNotEmpty == true 
-                    ? NetworkImage(authState.user!.photoUrl) 
-                    : null,
-                child: authState.user?.photoUrl.isEmpty == true 
-                    ? const Icon(Icons.person, size: 20) 
-                    : null,
-              ),
-              const SizedBox(width: 16),
-            ],
-          ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Search Bar
-                Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: colorScheme.surfaceVariant),
-                    boxShadow: [
-                      BoxShadow(
-                        color: colorScheme.primaryContainer.withOpacity(0.08),
-                        blurRadius: 20,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: TextField(
-                    onTap: () {
-                      context.push('/search');
-                    },
-                    readOnly: true,
-                    decoration: InputDecoration(
-                      hintText: 'Search your notes, texts, or authors...',
-                      hintStyle: textTheme.bodyLarge?.copyWith(color: colorScheme.outlineVariant),
-                      prefixIcon: Icon(Icons.search, color: colorScheme.outline),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                title: Text('${_selectedItems.length} Selected'),
+                actions: [
+                  if (_selectedItems.length == 1)
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () {
+                        final folder = database.folders[_selectedItems.first];
+                        if (folder != null) {
+                          _showRenameFolderDialog(_selectedItems.first, folder);
+                          _clearSelection();
+                        }
+                      },
                     ),
+                  IconButton(
+                    icon: const Icon(Icons.delete),
+                    onPressed: () {
+                      if (_selectedItems.length == 1) {
+                        final folder = database.folders[_selectedItems.first];
+                        if (folder != null) {
+                          _showDeleteFolderDialog(_selectedItems.first, folder);
+                        }
+                      } else {
+                        _showDeleteMultipleDialog();
+                      }
+                    },
                   ),
-                ),
-                const SizedBox(height: 48),
-
-                // Inbox Section (Only visible if there are unorganized files)
-                if (inboxCount > 0) ...[
-                  _buildInboxCard(context, inboxCount),
-                  const SizedBox(height: 32),
                 ],
-
-                // Section Header
-                Text(
-                  'Your Folders',
-                  style: textTheme.headlineMedium,
+              )
+            : AppBar(
+                title: Text(
+                  authState.user?.displayName ?? 'Quire',
+                  style: textTheme.headlineMedium?.copyWith(
+                    color: colorScheme.primary,
+                  ),
                 ),
-                const SizedBox(height: 24),
-
-                // Dynamic Content Area
-                if (rootFolders.isEmpty)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32.0),
-                      child: Text(
-                        "No folders found. Tap + to create one.",
-                        style: textTheme.bodyLarge?.copyWith(color: colorScheme.outline),
+                actions: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.settings,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    onPressed: () {},
+                  ),
+                  const SizedBox(width: 8),
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundImage: authState.user?.photoUrl.isNotEmpty == true
+                        ? NetworkImage(authState.user!.photoUrl)
+                        : null,
+                    child: authState.user?.photoUrl.isEmpty == true
+                        ? const Icon(Icons.person, size: 20)
+                        : null,
+                  ),
+                  const SizedBox(width: 16),
+                ],
+              ),
+        body: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Search Bar
+                  Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: colorScheme.surfaceVariant),
+                      boxShadow: [
+                        BoxShadow(
+                          color: colorScheme.primaryContainer.withOpacity(0.08),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      onTap: () {
+                        context.push('/search');
+                      },
+                      readOnly: true,
+                      decoration: InputDecoration(
+                        hintText: 'Search your notes, texts, or authors...',
+                        hintStyle: textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.outlineVariant,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          color: colorScheme.outline,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 20,
+                          horizontal: 16,
+                        ),
                       ),
                     ),
-                  )
-                else if (!_isEditMode)
-                  GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 1.0,
-                    ),
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: rootFolders.length,
-                    itemBuilder: (context, index) {
-                      final folder = rootFolders[index];
-                      return _buildFolderCard(
-                        key: ValueKey(folder.id),
-                        context: context, 
-                        folder: folder, 
-                        index: index,
-                      );
-                    },
-                  )
-                else
-                  ReorderableGridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 1.0,
-                    ),
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: rootFolders.length,
-                    onReorder: (oldIndex, newIndex) {
-                      final folder = rootFolders.removeAt(oldIndex);
-                      rootFolders.insert(newIndex, folder);
-                      ref.read(databaseProvider.notifier).reorderFolders(
-                        rootFolders.map((f) => f.id).toList()
-                      );
-                    },
-                    itemBuilder: (context, index) {
-                      final folder = rootFolders[index];
-                      return _buildFolderCard(
-                        key: ValueKey(folder.id),
-                        context: context, 
-                        folder: folder, 
-                        index: index,
-                      );
-                    },
                   ),
+                  const SizedBox(height: 48),
+
+                  // Inbox Section (Only visible if there are unorganized files)
+                  if (inboxCount > 0) ...[
+                    _buildInboxCard(context, inboxCount),
+                    const SizedBox(height: 32),
+                  ],
+
+                  // Section Header
+                  Text('Your Folders', style: textTheme.headlineMedium),
+                  const SizedBox(height: 24),
+
+                  // Dynamic Content Area
+                  if (rootFolders.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Text(
+                          "No folders found. Tap + to create one.",
+                          style: textTheme.bodyLarge?.copyWith(
+                            color: colorScheme.outline,
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (!_isEditMode)
+                    GridView.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            childAspectRatio: 1.0,
+                          ),
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: rootFolders.length,
+                      itemBuilder: (context, index) {
+                        final folder = rootFolders[index];
+                        return _buildFolderCard(
+                          key: ValueKey(folder.id),
+                          context: context,
+                          folder: folder,
+                          index: index,
+                        );
+                      },
+                    )
+                  else
+                    ReorderableGridView.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            childAspectRatio: 1.0,
+                          ),
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: rootFolders.length,
+                      onReorder: (oldIndex, newIndex) {
+                        final folder = rootFolders.removeAt(oldIndex);
+                        rootFolders.insert(newIndex, folder);
+                        ref
+                            .read(databaseProvider.notifier)
+                            .reorderFolders(
+                              rootFolders.map((f) => f.id).toList(),
+                            );
+                      },
+                      itemBuilder: (context, index) {
+                        final folder = rootFolders[index];
+                        return _buildFolderCard(
+                          key: ValueKey(folder.id),
+                          context: context,
+                          folder: folder,
+                          index: index,
+                        );
+                      },
+                    ),
+                ],
+              ),
+            ),
+            ExpandableFab(
+              key: _fabKey,
+              distance: 64.0,
+              children: [
+                ActionButton(
+                  onPressed: () {
+                    _fabKey.currentState?.close();
+                    _showAddFolderDialog();
+                  },
+                  icon: const Icon(Icons.create_new_folder),
+                  label: 'Add Folder',
+                ),
+                ActionButton(
+                  onPressed: () {
+                    _fabKey.currentState?.close();
+                    _pickAndUploadFiles();
+                  },
+                  icon: const Icon(Icons.upload_file),
+                  label: 'Upload File',
+                ),
               ],
             ),
-          ),
-          ExpandableFab(
-            key: _fabKey,
-            distance: 64.0,
-            children: [
-              ActionButton(
-                onPressed: () {
-                  _fabKey.currentState?.close();
-                  _showAddFolderDialog();
-                },
-                icon: const Icon(Icons.create_new_folder),
-                label: 'Add Folder',
-              ),
-              ActionButton(
-                onPressed: () {
-                  _fabKey.currentState?.close();
-                  _pickAndUploadFiles();
-                },
-                icon: const Icon(Icons.upload_file),
-                label: 'Upload File',
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
+        bottomNavigationBar: const AppBottomNavBar(currentIndex: 0),
       ),
-      bottomNavigationBar: const AppBottomNavBar(currentIndex: 0),
-    ));
+    );
   }
 
   Widget _buildFolderCard({
@@ -571,32 +876,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     final isSelected = _selectedItems.contains(folder.id);
-    
+
     return InkWell(
       key: key,
       onTap: () {
         if (_isEditMode) {
           _toggleSelection(folder.id);
         } else {
-          context.push('/folder/${folder.id}', extra: 1); // Depth is 1 for children of root folders
+          context.push(
+            '/folder/${folder.id}',
+            extra: 1,
+          ); // Depth is 1 for children of root folders
         }
       },
-      onLongPress: _isEditMode ? null : () {
-        setState(() {
-          _isEditMode = true;
-          _selectedItems.add(folder.id);
-        });
-      },
+      onLongPress: _isEditMode
+          ? null
+          : () {
+              setState(() {
+                _isEditMode = true;
+                _selectedItems.add(folder.id);
+              });
+            },
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? colorScheme.primaryContainer : colorScheme.surface,
+          color: isSelected
+              ? colorScheme.primaryContainer
+              : colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? colorScheme.primary : colorScheme.surfaceVariant,
+            color: isSelected
+                ? colorScheme.primary
+                : colorScheme.surfaceVariant,
             width: isSelected ? 2 : 1,
           ),
           boxShadow: [
@@ -620,27 +934,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: isSelected ? colorScheme.primary : colorScheme.surfaceContainer,
+                    color: isSelected
+                        ? colorScheme.primary
+                        : colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
-                    isSelected ? Icons.check : Icons.folder_special, 
-                    color: isSelected ? colorScheme.onPrimary : colorScheme.primary
+                    isSelected ? Icons.check : Icons.folder_special,
+                    color: isSelected
+                        ? colorScheme.onPrimary
+                        : colorScheme.primary,
                   ),
                 ),
                 if (_isEditMode)
-                  index != null 
-                    ? ReorderableDragStartListener(
-                        index: index,
-                        child: Icon(Icons.drag_indicator, color: colorScheme.onSurfaceVariant),
-                      )
-                    : Icon(Icons.drag_indicator, color: colorScheme.onSurfaceVariant)
+                  index != null
+                      ? ReorderableDragStartListener(
+                          index: index,
+                          child: Icon(
+                            Icons.drag_indicator,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        )
+                      : Icon(
+                          Icons.drag_indicator,
+                          color: colorScheme.onSurfaceVariant,
+                        )
                 else
                   IconButton(
-                    icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant),
+                    icon: Icon(
+                      Icons.more_vert,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
-                    onPressed: () => _showFolderOptions(context, folder.id, folder),
+                    onPressed: () =>
+                        _showFolderOptions(context, folder.id, folder),
                   ),
               ],
             ),
@@ -712,7 +1040,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Text(
                     'Shared from external apps',
                     style: textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSecondaryContainer.withValues(alpha: 0.8),
+                      color: colorScheme.onSecondaryContainer.withValues(
+                        alpha: 0.8,
+                      ),
                     ),
                   ),
                 ],

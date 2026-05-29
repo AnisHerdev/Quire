@@ -5,18 +5,28 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../models/database_model.dart';
 import '../services/sync_service.dart';
+import '../utils/duplicate_filename.dart';
 import 'auth_provider.dart';
 import 'drive_provider.dart';
 
-final databaseProvider = NotifierProvider<DatabaseNotifier, QuireDatabase>(DatabaseNotifier.new);
+final databaseProvider = NotifierProvider<DatabaseNotifier, QuireDatabase>(
+  DatabaseNotifier.new,
+);
 
 class _ShareRequest {
   final List<SharedMediaFile> files;
   final List<String>? customNames;
   final List<String>? tags;
   final String? folderName;
+  final bool replaceDuplicate;
 
-  const _ShareRequest(this.files, {this.customNames, this.tags, this.folderName});
+  const _ShareRequest(
+    this.files, {
+    this.customNames,
+    this.tags,
+    this.folderName,
+    this.replaceDuplicate = false,
+  });
 }
 
 class DatabaseNotifier extends Notifier<QuireDatabase> {
@@ -30,7 +40,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
 
   Future<void> init() async {
     final syncService = ref.read(syncServiceProvider);
-    
+
     // 1. Instantly load local DB for fast UI
     state = await syncService.loadLocalDatabase();
 
@@ -40,7 +50,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     if (googleAccount == null) {
       googleAccount = await authService.signInSilently();
     }
-    
+
     if (googleAccount != null) {
       ref.read(driveServiceProvider).setAccount(googleAccount);
       await _performBackgroundSync();
@@ -49,17 +59,29 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
 
   Future<void> _performBackgroundSync() async {
     final syncService = ref.read(syncServiceProvider);
-    // Overwrites state with the merged cloud data
-    state = await syncService.syncWithCloud(state);
+    final before = state;
+    final result = await syncService.syncWithCloud(before);
+
+    // If state was modified during the network call (e.g., share callback
+    // added files), the in-memory state is newer — don't overwrite it.
+    // The concurrent modification's saveAndSync already pushed to cloud.
+    if (state.syncMetadata.lastSyncedAt <= before.syncMetadata.lastSyncedAt) {
+      state = result;
+    }
   }
 
-  Future<void> addFolder(String name, String? parentId) async {
+  Future<void> addFolder(
+    String name,
+    String? parentId, {
+    List<String>? associatedTags,
+  }) async {
     const uuid = Uuid();
     final id = 'folder_${uuid.v4()}';
-    
+
     // Count how many items currently share the same parentId to set order
-    final order = state.folders.values.where((f) => f.parentId == parentId).length + 1;
-    
+    final order =
+        state.folders.values.where((f) => f.parentId == parentId).length + 1;
+
     final newFolder = FolderModel(
       id: id,
       name: name,
@@ -67,11 +89,13 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
       order: order,
       createdAt: DateTime.now().millisecondsSinceEpoch,
       syncStatus: 'pending',
+      associatedTags: associatedTags ?? [],
     );
-    
-    final updatedFolders = Map<String, FolderModel>.from(state.folders)..[id] = newFolder;
+
+    final updatedFolders = Map<String, FolderModel>.from(state.folders)
+      ..[id] = newFolder;
     state = state.copyWith(folders: updatedFolders);
-    
+
     await ref.read(syncServiceProvider).saveAndSync(state);
   }
 
@@ -94,7 +118,9 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     do {
       added = false;
       for (final f in state.folders.values) {
-        if (f.parentId != null && foldersToDelete.contains(f.parentId) && !foldersToDelete.contains(f.id)) {
+        if (f.parentId != null &&
+            foldersToDelete.contains(f.parentId) &&
+            !foldersToDelete.contains(f.id)) {
           foldersToDelete.add(f.id);
           added = true;
         }
@@ -103,7 +129,11 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
 
     // 2. Find all files in these folders
     final fileEntries = state.files.entries
-        .where((e) => e.value.folderId != null && foldersToDelete.contains(e.value.folderId))
+        .where(
+          (e) =>
+              e.value.folderId != null &&
+              foldersToDelete.contains(e.value.folderId),
+        )
         .toList();
 
     // 3. Delete files or move to Inbox
@@ -126,7 +156,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     // 4. Delete the folders from state and Google Drive
     final updatedFolders = Map<String, FolderModel>.from(state.folders);
     final driveService = ref.read(driveServiceProvider);
-    
+
     for (final id in foldersToDelete) {
       final f = updatedFolders[id];
       if (f != null && f.driveId != null && driveService.isReady) {
@@ -150,41 +180,66 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     if (googleAccount == null) {
       googleAccount = await authService.signInSilently();
     }
-    
+
     if (googleAccount != null) {
       driveService.setAccount(googleAccount);
       return true;
     }
-    
+
     return false;
   }
 
-  Future<void> processSharedFiles(List<SharedMediaFile> files,
-      {List<String>? customNames, List<String>? tags, String? folderName}) async {
+  Future<void> processSharedFiles(
+    List<SharedMediaFile> files, {
+    List<String>? customNames,
+    List<String>? tags,
+    String? folderName,
+    bool replaceDuplicate = false,
+  }) async {
     if (_isProcessingSharedFiles) {
-      _pendingShareQueue.add(_ShareRequest(files,
-          customNames: customNames, tags: tags, folderName: folderName));
+      _pendingShareQueue.add(
+        _ShareRequest(
+          files,
+          customNames: customNames,
+          tags: tags,
+          folderName: folderName,
+          replaceDuplicate: replaceDuplicate,
+        ),
+      );
       return;
     }
 
     _isProcessingSharedFiles = true;
     try {
-      await _processSharedFilesInternal(files,
-          customNames: customNames, tags: tags, folderName: folderName);
+      await _processSharedFilesInternal(
+        files,
+        customNames: customNames,
+        tags: tags,
+        folderName: folderName,
+        replaceDuplicate: replaceDuplicate,
+      );
     } finally {
       _isProcessingSharedFiles = false;
       if (_pendingShareQueue.isNotEmpty) {
         final next = _pendingShareQueue.removeAt(0);
-        processSharedFiles(next.files,
-            customNames: next.customNames,
-            tags: next.tags,
-            folderName: next.folderName);
+        processSharedFiles(
+          next.files,
+          customNames: next.customNames,
+          tags: next.tags,
+          folderName: next.folderName,
+          replaceDuplicate: next.replaceDuplicate,
+        );
       }
     }
   }
 
-  Future<void> _processSharedFilesInternal(List<SharedMediaFile> files,
-      {List<String>? customNames, List<String>? tags, String? folderName}) async {
+  Future<void> _processSharedFilesInternal(
+    List<SharedMediaFile> files, {
+    List<String>? customNames,
+    List<String>? tags,
+    String? folderName,
+    bool replaceDuplicate = false,
+  }) async {
     final isAuthenticated = await _ensureDriveAuthenticated();
     if (!isAuthenticated) {
       throw StateError('User is not authenticated with Google.');
@@ -192,13 +247,17 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
 
     final updatedFiles = Map<String, QuireFileModel>.from(state.files);
     final updatedAllTags = Set<String>.from(state.allTags);
-    bool stateChanged = false;
 
-    // Resolve folderId from folderName (auto-create if needed)
+    // Resolve folderId from folderName:
+    //   ''    → explicit inbox, no folder
+    //   other → use as folder name (existing or new)
+    final effectiveFolderName = (folderName != null && folderName.isNotEmpty)
+        ? folderName
+        : null;
     String? resolvedFolderId;
-    if (folderName != null && folderName.isNotEmpty) {
+    if (effectiveFolderName != null) {
       final existing = state.folders.values.where(
-        (f) => f.name.toLowerCase() == folderName.toLowerCase(),
+        (f) => f.name.toLowerCase() == effectiveFolderName.toLowerCase(),
       );
       if (existing.isNotEmpty) {
         resolvedFolderId = existing.first.id;
@@ -207,10 +266,12 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
         final newFolderId = 'folder_${uuid.v4()}';
         final newFolder = FolderModel(
           id: newFolderId,
-          name: folderName,
-          order: state.folders.values.where((f) => f.parentId == null).length + 1,
+          name: effectiveFolderName,
+          order:
+              state.folders.values.where((f) => f.parentId == null).length + 1,
           createdAt: DateTime.now().millisecondsSinceEpoch,
           syncStatus: 'pending',
+          associatedTags: tags ?? [],
         );
         final updatedFolders = Map<String, FolderModel>.from(state.folders)
           ..[newFolderId] = newFolder;
@@ -219,56 +280,90 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
       }
     }
 
+    int filesProcessed = 0;
+    int filesSkipped = 0;
+    String? lastError;
+    final dir = await getApplicationDocumentsDirectory();
+    final cacheDir = Directory('${dir.path}/pdf_cache');
+
     for (var sharedFile in files) {
       try {
         final file = File(sharedFile.path);
-        if (!await file.exists()) continue;
+        if (!await file.exists()) {
+          filesSkipped++;
+          continue;
+        }
 
-        // Extract original name or use custom name
         final index = files.indexOf(sharedFile);
-        final finalName = (customNames != null && customNames.length > index && customNames[index].isNotEmpty) 
-            ? customNames[index] 
+        var finalName =
+            (customNames != null &&
+                customNames.length > index &&
+                customNames[index].isNotEmpty)
+            ? customNames[index]
             : (sharedFile.path.split(Platform.pathSeparator).last);
-            
+
         final mimeType = sharedFile.mimeType ?? _getMimeType(finalName);
         final fileSize = await file.length();
 
-        // Duplicate check: same name (case-insensitive) + same size
-        bool isDuplicate = false;
-        final dir = await getApplicationDocumentsDirectory();
-        final cacheDir = Directory('${dir.path}/pdf_cache');
-        for (final entry in state.files.entries) {
+        String? duplicateId;
+        String? sameNameId;
+        for (final entry in updatedFiles.entries) {
           final existingFile = entry.value;
           if (existingFile.name.toLowerCase() == finalName.toLowerCase()) {
             final cachedFile = File('${cacheDir.path}/${entry.key}.pdf');
-            if (await cachedFile.exists()) {
+            final cachedFileExists = await cachedFile.exists();
+            if (existingFile.driveId != null || cachedFileExists) {
+              sameNameId ??= entry.key;
+            }
+            if (cachedFileExists) {
               final cachedSize = await cachedFile.length();
               if (cachedSize == fileSize) {
-                isDuplicate = true;
+                duplicateId = entry.key;
                 break;
               }
             }
           }
         }
-        if (isDuplicate) continue;
+        if (duplicateId != null) {
+          if (replaceDuplicate) {
+            final cachedFile = File('${cacheDir.path}/$duplicateId.pdf');
+            if (await cachedFile.exists()) {
+              await cachedFile.delete();
+            }
+            updatedFiles.remove(duplicateId);
+          } else {
+            finalName = uniqueDuplicateFilename(
+              finalName,
+              updatedFiles.values.map((file) => file.name),
+            );
+          }
+        } else if (sameNameId != null && !replaceDuplicate) {
+          finalName = uniqueDuplicateFilename(
+            finalName,
+            updatedFiles.values.map((file) => file.name),
+          );
+        } else if (sameNameId != null && replaceDuplicate) {
+          final cachedFile = File('${cacheDir.path}/$sameNameId.pdf');
+          if (await cachedFile.exists()) {
+            await cachedFile.delete();
+          }
+          updatedFiles.remove(sameNameId);
+        }
 
-        // Generate a local ID and copy file to cache immediately
         const uuid = Uuid();
         final localId = 'local_${uuid.v4()}';
-        
+
         if (!await cacheDir.exists()) {
           await cacheDir.create(recursive: true);
         }
-        
+
         final localFile = File('${cacheDir.path}/$localId.pdf');
         await file.copy(localFile.path);
 
-        // Merge submitted tags into global registry
         if (tags != null) {
           updatedAllTags.addAll(tags);
         }
 
-        // Instantly save to local database
         final newFile = QuireFileModel(
           name: finalName,
           mimeType: mimeType,
@@ -278,24 +373,33 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
           syncStatus: 'pending',
           driveId: null,
         );
-        
+
         updatedFiles[localId] = newFile;
-        stateChanged = true;
+        filesProcessed++;
       } catch (e) {
-        print('Error processing shared file: $e');
+        filesSkipped++;
+        lastError = e.toString();
       }
     }
 
-    if (stateChanged) {
+    if (filesProcessed > 0) {
       state = state.copyWith(files: updatedFiles, allTags: updatedAllTags);
       await ref.read(syncServiceProvider).saveAndSync(state);
-      
-      // Kick off background sync without blocking UI
       _syncPendingFiles();
+    }
+
+    if (filesProcessed == 0 && filesSkipped > 0) {
+      throw StateError(
+        'No files could be saved. ${lastError ?? "Check if the files still exist."}',
+      );
     }
   }
 
-  Future<void> addPickedFiles(List<String> paths, List<String> names, String? folderId) async {
+  Future<void> addPickedFiles(
+    List<String> paths,
+    List<String> names,
+    String? folderId,
+  ) async {
     final isAuthenticated = await _ensureDriveAuthenticated();
     if (!isAuthenticated) {
       throw StateError('User is not authenticated with Google.');
@@ -313,13 +417,13 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
 
         const uuid = Uuid();
         final localId = 'local_${uuid.v4()}';
-        
+
         final dir = await getApplicationDocumentsDirectory();
         final cacheDir = Directory('${dir.path}/pdf_cache');
         if (!await cacheDir.exists()) {
           await cacheDir.create(recursive: true);
         }
-        
+
         final localFile = File('${cacheDir.path}/$localId.pdf');
         await file.copy(localFile.path);
 
@@ -332,7 +436,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
           syncStatus: 'pending',
           driveId: null,
         );
-        
+
         updatedFiles[localId] = newFile;
         stateChanged = true;
       } catch (e) {
@@ -355,17 +459,19 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
       final rootId = await driveService.getOrCreateQuireRootFolder();
       final dir = await getApplicationDocumentsDirectory();
       final cacheDir = Directory('${dir.path}/pdf_cache');
-      
+
       bool dbChanged = false;
       final updatedFolders = Map<String, FolderModel>.from(state.folders);
       final updatedFiles = Map<String, QuireFileModel>.from(state.files);
 
       // 1. Sync Folders
-      final pendingFolders = state.folders.entries.where((e) => e.value.syncStatus == 'pending').toList();
+      final pendingFolders = state.folders.entries
+          .where((e) => e.value.syncStatus == 'pending')
+          .toList();
       for (var entry in pendingFolders) {
         final folderId = entry.key;
         final folderModel = entry.value;
-        
+
         try {
           String parentDriveId = rootId;
           if (folderModel.parentId != null) {
@@ -376,8 +482,11 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
               continue; // Parent not synced yet, skip for now
             }
           }
-          
-          final driveId = await driveService.createVisibleFolder(folderModel.name, parentDriveId);
+
+          final driveId = await driveService.createVisibleFolder(
+            folderModel.name,
+            parentDriveId,
+          );
           updatedFolders[folderId] = folderModel.copyWith(
             driveId: driveId,
             syncStatus: 'synced',
@@ -389,11 +498,13 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
       }
 
       // 2. Sync Files
-      final pendingFiles = state.files.entries.where((e) => e.value.syncStatus == 'pending').toList();
+      final pendingFiles = state.files.entries
+          .where((e) => e.value.syncStatus == 'pending')
+          .toList();
       for (var entry in pendingFiles) {
         final localId = entry.key;
         final fileModel = entry.value;
-        
+
         final localFile = File('${cacheDir.path}/$localId.pdf');
         if (await localFile.exists()) {
           try {
@@ -408,12 +519,12 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
             }
 
             final driveFile = await driveService.uploadVisibleFile(
-              localFile, 
-              fileModel.mimeType, 
+              localFile,
+              fileModel.mimeType,
               parentDriveId,
               customName: fileModel.name,
             );
-            
+
             if (driveFile.id != null) {
               updatedFiles[localId] = fileModel.copyWith(
                 driveId: driveFile.id,
@@ -436,13 +547,16 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     }
   }
 
-  Future<void> _moveFilesInDrive(Map<String, QuireFileModel> originalStates, String? newFolderId) async {
+  Future<void> _moveFilesInDrive(
+    Map<String, QuireFileModel> originalStates,
+    String? newFolderId,
+  ) async {
     final driveService = ref.read(driveServiceProvider);
     if (!driveService.isReady) return;
-    
+
     try {
       final rootId = await driveService.getOrCreateQuireRootFolder();
-      
+
       String newParentDriveId = rootId;
       if (newFolderId != null) {
         final folder = state.folders[newFolderId];
@@ -459,12 +573,16 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
         if (file != null && file.driveId != null) {
           String oldParentDriveId = rootId;
           if (originalFile.folderId != null) {
-             final oldFolder = state.folders[originalFile.folderId];
-             if (oldFolder != null && oldFolder.driveId != null) {
-               oldParentDriveId = oldFolder.driveId!;
-             }
+            final oldFolder = state.folders[originalFile.folderId];
+            if (oldFolder != null && oldFolder.driveId != null) {
+              oldParentDriveId = oldFolder.driveId!;
+            }
           }
-          await driveService.moveVisibleItem(file.driveId!, oldParentDriveId, newParentDriveId);
+          await driveService.moveVisibleItem(
+            file.driveId!,
+            oldParentDriveId,
+            newParentDriveId,
+          );
         }
       }
     } catch (e) {
@@ -475,7 +593,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
   Future<void> Function() moveFiles(List<String> fileIds, String? newFolderId) {
     final originalStates = <String, QuireFileModel>{};
     final updatedFiles = Map<String, QuireFileModel>.from(state.files);
-    
+
     for (final id in fileIds) {
       if (updatedFiles.containsKey(id)) {
         originalStates[id] = updatedFiles[id]!;
@@ -485,7 +603,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
         );
       }
     }
-    
+
     state = state.copyWith(files: updatedFiles);
     ref.read(syncServiceProvider).saveAndSync(state);
 
@@ -506,11 +624,11 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
 
   Future<void> renameFolder(String folderId, String newName) async {
     if (!state.folders.containsKey(folderId)) return;
-    
+
     final updatedFolders = Map<String, FolderModel>.from(state.folders);
     final folder = updatedFolders[folderId]!;
     updatedFolders[folderId] = folder.copyWith(name: newName);
-    
+
     state = state.copyWith(folders: updatedFolders);
     await ref.read(syncServiceProvider).saveAndSync(state);
 
@@ -524,24 +642,37 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     }
   }
 
+  Future<void> updateFolderState(
+    Map<String, FolderModel> updatedFolders,
+  ) async {
+    state = state.copyWith(folders: updatedFolders);
+    await ref.read(syncServiceProvider).saveAndSync(state);
+  }
+
   String _getMimeType(String name) {
     final ext = name.split('.').last.toLowerCase();
     switch (ext) {
-      case 'pdf': return 'application/pdf';
-      case 'doc': return 'application/msword';
-      case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      case 'ppt': return 'application/vnd.ms-powerpoint';
-      case 'pptx': return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
-      default: return 'application/octet-stream';
+      case 'pdf':
+        return 'application/pdf';
+      case 'doc':
+        return 'application/msword';
+      case 'docx':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'ppt':
+        return 'application/vnd.ms-powerpoint';
+      case 'pptx':
+        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      default:
+        return 'application/octet-stream';
     }
   }
 
-
-
-
-  Future<void> deleteFiles(List<String> fileIds, {bool forceLocalDelete = false}) async {
+  Future<void> deleteFiles(
+    List<String> fileIds, {
+    bool forceLocalDelete = false,
+  }) async {
     final driveService = ref.read(driveServiceProvider);
-    
+
     bool requiresCloudDeletion = false;
     for (final id in fileIds) {
       final file = state.files[id];
@@ -554,7 +685,9 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     if (requiresCloudDeletion) {
       final isAuthenticated = await _ensureDriveAuthenticated();
       if (!isAuthenticated) {
-        throw StateError('You need an internet connection to delete files from Drive.');
+        throw StateError(
+          'You need an internet connection to delete files from Drive.',
+        );
       }
     }
 
@@ -570,7 +703,8 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
         try {
           await driveService.deleteVisibleFile(file.driveId!);
         } catch (e) {
-          if (!forceLocalDelete && e.toString().contains('FileNotFoundOnDrive')) {
+          if (!forceLocalDelete &&
+              e.toString().contains('FileNotFoundOnDrive')) {
             throw Exception('FileNotFoundOnDrive');
           }
           if (!forceLocalDelete) {
