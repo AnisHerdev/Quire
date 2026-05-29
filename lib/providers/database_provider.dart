@@ -10,7 +10,19 @@ import 'drive_provider.dart';
 
 final databaseProvider = NotifierProvider<DatabaseNotifier, QuireDatabase>(DatabaseNotifier.new);
 
+class _ShareRequest {
+  final List<SharedMediaFile> files;
+  final List<String>? customNames;
+  final List<String>? tags;
+  final String? folderName;
+
+  const _ShareRequest(this.files, {this.customNames, this.tags, this.folderName});
+}
+
 class DatabaseNotifier extends Notifier<QuireDatabase> {
+  bool _isProcessingSharedFiles = false;
+  final List<_ShareRequest> _pendingShareQueue = [];
+
   @override
   QuireDatabase build() {
     return QuireDatabase.empty();
@@ -147,15 +159,65 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     return false;
   }
 
-  Future<void> processSharedFiles(List<SharedMediaFile> files, {List<String>? customNames}) async {
+  Future<void> processSharedFiles(List<SharedMediaFile> files,
+      {List<String>? customNames, List<String>? tags, String? folderName}) async {
+    if (_isProcessingSharedFiles) {
+      _pendingShareQueue.add(_ShareRequest(files,
+          customNames: customNames, tags: tags, folderName: folderName));
+      return;
+    }
+
+    _isProcessingSharedFiles = true;
+    try {
+      await _processSharedFilesInternal(files,
+          customNames: customNames, tags: tags, folderName: folderName);
+    } finally {
+      _isProcessingSharedFiles = false;
+      if (_pendingShareQueue.isNotEmpty) {
+        final next = _pendingShareQueue.removeAt(0);
+        processSharedFiles(next.files,
+            customNames: next.customNames,
+            tags: next.tags,
+            folderName: next.folderName);
+      }
+    }
+  }
+
+  Future<void> _processSharedFilesInternal(List<SharedMediaFile> files,
+      {List<String>? customNames, List<String>? tags, String? folderName}) async {
     final isAuthenticated = await _ensureDriveAuthenticated();
     if (!isAuthenticated) {
       throw StateError('User is not authenticated with Google.');
     }
 
-    final driveService = ref.read(driveServiceProvider);
     final updatedFiles = Map<String, QuireFileModel>.from(state.files);
+    final updatedAllTags = Set<String>.from(state.allTags);
     bool stateChanged = false;
+
+    // Resolve folderId from folderName (auto-create if needed)
+    String? resolvedFolderId;
+    if (folderName != null && folderName.isNotEmpty) {
+      final existing = state.folders.values.where(
+        (f) => f.name.toLowerCase() == folderName.toLowerCase(),
+      );
+      if (existing.isNotEmpty) {
+        resolvedFolderId = existing.first.id;
+      } else {
+        const uuid = Uuid();
+        final newFolderId = 'folder_${uuid.v4()}';
+        final newFolder = FolderModel(
+          id: newFolderId,
+          name: folderName,
+          order: state.folders.values.where((f) => f.parentId == null).length + 1,
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+          syncStatus: 'pending',
+        );
+        final updatedFolders = Map<String, FolderModel>.from(state.folders)
+          ..[newFolderId] = newFolder;
+        state = state.copyWith(folders: updatedFolders);
+        resolvedFolderId = newFolderId;
+      }
+    }
 
     for (var sharedFile in files) {
       try {
@@ -169,13 +231,31 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
             : (sharedFile.path.split(Platform.pathSeparator).last);
             
         final mimeType = sharedFile.mimeType ?? _getMimeType(finalName);
+        final fileSize = await file.length();
+
+        // Duplicate check: same name (case-insensitive) + same size
+        bool isDuplicate = false;
+        final dir = await getApplicationDocumentsDirectory();
+        final cacheDir = Directory('${dir.path}/pdf_cache');
+        for (final entry in state.files.entries) {
+          final existingFile = entry.value;
+          if (existingFile.name.toLowerCase() == finalName.toLowerCase()) {
+            final cachedFile = File('${cacheDir.path}/${entry.key}.pdf');
+            if (await cachedFile.exists()) {
+              final cachedSize = await cachedFile.length();
+              if (cachedSize == fileSize) {
+                isDuplicate = true;
+                break;
+              }
+            }
+          }
+        }
+        if (isDuplicate) continue;
 
         // Generate a local ID and copy file to cache immediately
         const uuid = Uuid();
         final localId = 'local_${uuid.v4()}';
         
-        final dir = await getApplicationDocumentsDirectory();
-        final cacheDir = Directory('${dir.path}/pdf_cache');
         if (!await cacheDir.exists()) {
           await cacheDir.create(recursive: true);
         }
@@ -183,13 +263,18 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
         final localFile = File('${cacheDir.path}/$localId.pdf');
         await file.copy(localFile.path);
 
+        // Merge submitted tags into global registry
+        if (tags != null) {
+          updatedAllTags.addAll(tags);
+        }
+
         // Instantly save to local database
         final newFile = QuireFileModel(
           name: finalName,
           mimeType: mimeType,
-          folderId: null, // Uncategorized (Inbox)
+          folderId: resolvedFolderId,
           addedAt: DateTime.now().millisecondsSinceEpoch,
-          tags: [],
+          tags: tags ?? [],
           syncStatus: 'pending',
           driveId: null,
         );
@@ -202,7 +287,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     }
 
     if (stateChanged) {
-      state = state.copyWith(files: updatedFiles);
+      state = state.copyWith(files: updatedFiles, allTags: updatedAllTags);
       await ref.read(syncServiceProvider).saveAndSync(state);
       
       // Kick off background sync without blocking UI
