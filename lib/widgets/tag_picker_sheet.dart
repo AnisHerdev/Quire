@@ -5,9 +5,9 @@ import '../utils/subject_detector.dart';
 
 class TagPickerResult {
   final List<String> tags;
-  final String? folderId;
+  final String? folderName;
 
-  const TagPickerResult({required this.tags, this.folderId});
+  const TagPickerResult({required this.tags, this.folderName});
 }
 
 Future<TagPickerResult?> showTagPickerSheet({
@@ -76,21 +76,9 @@ class _TagPickerSheetState extends ConsumerState<_TagPickerSheet> {
 
   void _submit() {
     final folderName = _folderController.text.trim();
-    String? folderId;
-
-    if (folderName.isNotEmpty) {
-      final db = ref.read(databaseProvider);
-      final existing = db.folders.values.where(
-        (f) => f.name.toLowerCase() == folderName.toLowerCase(),
-      );
-      if (existing.isNotEmpty) {
-        folderId = existing.first.id;
-      }
-    }
-
     Navigator.pop(context, TagPickerResult(
       tags: _selectedTags.toList(),
-      folderId: folderId,
+      folderName: folderName.isNotEmpty ? folderName : null,
     ));
   }
 

@@ -8,8 +8,8 @@ import '../providers/auth_provider.dart';
 import '../services/sharing_service.dart';
 import '../models/database_model.dart';
 import '../widgets/expandable_fab.dart';
+import '../widgets/tag_picker_sheet.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -134,18 +134,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         if (customName == null) return; // User cancelled
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Saving "$customName" to Inbox...'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
+        // Show tag picker for organization
+        if (!mounted) return;
+        final tagResult = await showTagPickerSheet(
+          context: context,
+          filename: customName,
+        );
+
+        if (tagResult == null) return; // User cancelled tag picker
+        if (!mounted) return;
+
+        final folderLabel = tagResult.folderName ?? 'Inbox';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Saving "$customName" to $folderLabel...'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
         
         try {
           final namesList = List.filled(files.length, customName);
-          await ref.read(databaseProvider.notifier).processSharedFiles(files, customNames: namesList);
+          await ref.read(databaseProvider.notifier).processSharedFiles(
+            files,
+            customNames: namesList,
+            tags: tagResult.tags,
+            folderName: tagResult.folderName,
+          );
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
