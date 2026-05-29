@@ -3,7 +3,7 @@ class SubjectDetector {
     'README', 'SUMMARY', 'NOTES', 'INDEX', 'CHANGES', 'LICENSE',
   };
 
-  static final RegExp _prefixPattern = RegExp(r'^([A-Z]{2,4})[_ -]');
+  static final RegExp _prefixPattern = RegExp(r'^([A-Z]{2,4})\d*[_ -]');
 
   static List<String> detect(String filename) {
     final name = filename.split('.').first.trim();
