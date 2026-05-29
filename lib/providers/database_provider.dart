@@ -590,4 +590,24 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     state = state.copyWith(files: updatedFiles);
     await ref.read(syncServiceProvider).saveAndSync(state);
   }
+
+  Future<void> removeFromCache(String fileId) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final cacheFile = File('${dir.path}/pdf_cache/$fileId.pdf');
+    if (await cacheFile.exists()) {
+      await cacheFile.delete();
+    }
+  }
+
+  Future<void> clearAllCache() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final cacheDir = Directory('${dir.path}/pdf_cache');
+    if (await cacheDir.exists()) {
+      await for (final entity in cacheDir.list()) {
+        if (entity is File) {
+          await entity.delete();
+        }
+      }
+    }
+  }
 }
