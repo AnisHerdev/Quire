@@ -1105,6 +1105,30 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           ListTile(
+                            leading: Icon(Icons.open_in_new, color: colorScheme.primary),
+                            title: Text('Open externally', style: TextStyle(color: colorScheme.primary)),
+                            onTap: () async {
+                              Navigator.pop(ctx);
+                              final dir = await getApplicationDocumentsDirectory();
+                              final ext = extensionForMimeType(file.mimeType);
+                              final filePath = '${dir.path}/pdf_cache/$fileId$ext';
+                              try {
+                                final result = await OpenFilex.open(filePath, type: file.mimeType);
+                                if (result != null && result.type == 'error' && mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Could not open file: ${result.message}')),
+                                  );
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Could not open file: $e')),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                          ListTile(
                             leading: Icon(Icons.drive_file_move, color: colorScheme.primary),
                             title: Text('Move File', style: TextStyle(color: colorScheme.primary)),
                             onTap: () {
@@ -1279,6 +1303,30 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
+                                    ListTile(
+                                      leading: Icon(Icons.open_in_new, color: colorScheme.primary),
+                                      title: Text('Open externally', style: TextStyle(color: colorScheme.primary)),
+                                      onTap: () async {
+                                        Navigator.pop(ctx);
+                                        final dir = await getApplicationDocumentsDirectory();
+                                        final ext = extensionForMimeType(file.mimeType);
+                                        final filePath = '${dir.path}/pdf_cache/$fileId$ext';
+                                        try {
+                                          final result = await OpenFilex.open(filePath, type: file.mimeType);
+                                          if (result != null && result.type == 'error' && mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text('Could not open file: ${result.message}')),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text('Could not open file: $e')),
+                                            );
+                                          }
+                                        }
+                                      },
+                                    ),
                                     ListTile(
                                       leading: const Icon(Icons.drive_file_move),
                                       title: const Text('Move to...'),
