@@ -74,7 +74,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (entry.value.name.toLowerCase() != name.toLowerCase()) continue;
       if (entry.value.driveId != null) return true;
 
-      final cachedFile = File('${cacheDir.path}/${entry.key}.pdf');
+      final ext = extensionForMimeType(entry.value.mimeType);
+      final cachedFile = File('${cacheDir.path}/${entry.key}$ext');
       if (await cachedFile.exists()) return true;
     }
 
@@ -188,7 +189,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         bool replaceDuplicate = false;
 
         if (stableFiles.length == 1) {
-          String initialName = stableFiles.first.path
+          String initialName = files.first.path
               .split(Platform.pathSeparator)
               .last;
           if (initialName.contains('share_') ||
@@ -231,6 +232,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           );
         } else {
+          customNames = files.map((f) =>
+            f.path.split(Platform.pathSeparator).last,
+          ).toList();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Saving to Inbox...'),
