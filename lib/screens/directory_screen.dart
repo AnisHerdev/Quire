@@ -988,7 +988,8 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
             context.push('/pdf-viewer/$fileId');
           } else {
             final dir = await getApplicationDocumentsDirectory();
-            final filePath = '${dir.path}/pdf_cache/$fileId.pdf';
+            final ext = extensionForMimeType(file.mimeType);
+            final filePath = '${dir.path}/pdf_cache/$fileId$ext';
             await OpenFilex.open(filePath, type: file.mimeType);
           }
         }
@@ -1149,7 +1150,8 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
             context.push('/pdf-viewer/$fileId');
           } else {
             final dir = await getApplicationDocumentsDirectory();
-            final filePath = '${dir.path}/pdf_cache/$fileId.pdf';
+            final ext = extensionForMimeType(file.mimeType);
+            final filePath = '${dir.path}/pdf_cache/$fileId$ext';
             await OpenFilex.open(filePath, type: file.mimeType);
           }
         }

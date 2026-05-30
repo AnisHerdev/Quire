@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../providers/database_provider.dart';
+import '../providers/thumbnail_provider.dart';
 import '../providers/view_mode_provider.dart';
 import '../services/cache_service.dart';
 
@@ -44,14 +45,16 @@ class _OfflineFilesScreenState extends ConsumerState<OfflineFilesScreen> {
 
     if (await cacheDir.exists()) {
       for (final entity in cacheDir.listSync()) {
-        if (entity is File && entity.path.endsWith('.pdf')) {
-          final fileId = entity.uri.pathSegments.last.replaceAll('.pdf', '');
+        if (entity is File && !entity.path.endsWith('_thumb.jpg')) {
+          final fileName = entity.uri.pathSegments.last;
+          final fileId = fileName.split('.').first;
           final dbFile = db.files[fileId];
           final stat = await entity.stat();
           files.add(_CachedFileInfo(
             fileId: fileId,
             name: dbFile?.name ?? fileId,
             mimeType: dbFile?.mimeType ?? '',
+            driveId: dbFile?.driveId,
             sizeBytes: stat.size,
             addedAt: stat.modified.millisecondsSinceEpoch,
             addedAtReadable: _formatDate(stat.modified),
@@ -86,43 +89,131 @@ class _OfflineFilesScreenState extends ConsumerState<OfflineFilesScreen> {
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
-  Future<void> _clearAllCache() async {
+  Future<void> _showCacheCleanupDialog() async {
+    final theme = Theme.of(context);
+    int keepCount = 10;
+
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Clear All Cache?'),
-        content: const Text('This will remove all locally cached files. They will still be available online.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Clear')),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: theme.colorScheme.surface,
+            title: Text('Free Up Space', style: theme.textTheme.headlineSmall),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'How many of your most recently opened files should stay downloaded for offline access?',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'The rest will be removed from this device only. Your files will stay safe on Google Drive and will re-download when you open them.',
+                  style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Keep last:', style: theme.textTheme.labelLarge),
+                    Text('$keepCount files', style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.primary,
+                    )),
+                  ],
+                ),
+                Slider(
+                  value: keepCount.toDouble(),
+                  min: 0,
+                  max: 50,
+                  divisions: 10,
+                  activeColor: theme.colorScheme.primary,
+                  onChanged: (val) {
+                    setDialogState(() => keepCount = val.toInt());
+                  },
+                ),
+                if (keepCount == 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'This will remove all offline files from your device.',
+                      style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.error),
+                    ),
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text('Cancel', style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.onSurface)),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.colorScheme.error,
+                  foregroundColor: theme.colorScheme.onError,
+                ),
+                child: const Text('Clear'),
+              ),
+            ],
+          );
+        },
       ),
     );
+
     if (confirmed == true) {
-      await ref.read(databaseProvider.notifier).clearAllCache();
+      await ref.read(cacheServiceProvider).clearCacheExceptRecent(keepCount);
       _refreshData();
     }
   }
 
   Future<void> _deleteFile(String fileId, String fileName) async {
-    final confirmed = await showDialog<bool>(
+    final colorScheme = Theme.of(context).colorScheme;
+    final action = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete File'),
-        content: Text('Remove "$fileName" from Quire completely?'),
+        title: Text('Delete "$fileName"?'),
+        content: const Text('How would you like to remove this file?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'cancel'),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'device'),
+            child: Text(
+              'Remove from device only',
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
+            ),
+          ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
+            style: FilledButton.styleFrom(backgroundColor: colorScheme.error),
+            onPressed: () => Navigator.pop(ctx, 'permanent'),
+            child: const Text('Delete permanently'),
           ),
         ],
       ),
     );
-    if (confirmed == true) {
-      await ref.read(databaseProvider.notifier).deleteFiles([fileId], forceLocalDelete: true);
-      _refreshData();
+
+    if (action == 'device') {
+      await ref.read(databaseProvider.notifier).removeFromCache(fileId);
+      if (mounted) _refreshData();
+    } else if (action == 'permanent') {
+      try {
+        await ref.read(databaseProvider.notifier).deleteFiles([fileId]);
+        if (mounted) _refreshData();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to delete from cloud: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -241,7 +332,7 @@ class _OfflineFilesScreenState extends ConsumerState<OfflineFilesScreen> {
                 ],
               ),
               TextButton(
-                onPressed: _cachedFiles.isEmpty ? null : _clearAllCache,
+                onPressed: _cachedFiles.isEmpty ? null : _showCacheCleanupDialog,
                 style: TextButton.styleFrom(
                   foregroundColor: colorScheme.error,
                   textStyle: textTheme.labelSmall,
@@ -249,9 +340,9 @@ class _OfflineFilesScreenState extends ConsumerState<OfflineFilesScreen> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Clear Cache'),
+                    Text('Free Up Space'),
                     SizedBox(width: 4),
-                    Icon(Icons.delete_outline, size: 16),
+                    Icon(Icons.cleaning_services, size: 16),
                   ],
                 ),
               ),
@@ -354,14 +445,29 @@ class _OfflineFilesScreenState extends ConsumerState<OfflineFilesScreen> {
         ),
         child: Row(
         children: [
-          Container(
+          SizedBox(
             width: 48,
             height: 48,
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.2),
+            child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
+              child: file.driveId != null
+                  ? Consumer(
+                      builder: (context, ref, _) {
+                        final thumbAsync = ref.watch(thumbnailProvider(file.driveId!));
+                        return thumbAsync.when(
+                          data: (bytes) {
+                            if (bytes != null) {
+                              return Image.memory(bytes, fit: BoxFit.cover);
+                            }
+                            return _buildIconThumb(iconColor, file);
+                          },
+                          loading: () => _buildIconThumb(iconColor, file),
+                          error: (_, __) => _buildIconThumb(iconColor, file),
+                        );
+                      },
+                    )
+                  : _buildIconThumb(iconColor, file),
             ),
-            child: Icon(_iconForMime(file.mimeType), color: iconColor, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -390,32 +496,9 @@ class _OfflineFilesScreenState extends ConsumerState<OfflineFilesScreen> {
               ],
             ),
           ),
-          PopupMenuButton<String>(
+          IconButton(
             icon: Icon(Icons.more_vert, color: colorScheme.onSurfaceVariant),
-            onSelected: (value) {
-              if (value == 'delete') {
-                _deleteFile(file.fileId, file.name);
-              } else if (value == 'remove_cache') {
-                ref.read(databaseProvider.notifier).removeFromCache(file.fileId);
-                _refreshData();
-              }
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(value: 'delete', child: Row(
-                children: [
-                  Icon(Icons.delete_outline, color: colorScheme.error, size: 20),
-                  const SizedBox(width: 8),
-                  Text('Delete from Quire', style: TextStyle(color: colorScheme.error)),
-                ],
-              )),
-              PopupMenuItem(value: 'remove_cache', child: Row(
-                children: [
-                  Icon(Icons.cloud_off, color: colorScheme.onSurfaceVariant, size: 20),
-                  const SizedBox(width: 8),
-                  const Text('Remove from cache'),
-                ],
-              )),
-            ],
+            onPressed: () => _deleteFile(file.fileId, file.name),
           ),
         ],
       ),
@@ -435,7 +518,6 @@ class _OfflineFilesScreenState extends ConsumerState<OfflineFilesScreen> {
       onLongPress: () => _deleteFile(file.fileId, file.name),
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(16),
@@ -445,37 +527,85 @@ class _OfflineFilesScreenState extends ConsumerState<OfflineFilesScreen> {
           ],
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: iconColor.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(_iconForMime(file.mimeType), color: iconColor, size: 20),
-                ),
-                IconButton(
-                  icon: Icon(Icons.delete_outline, color: colorScheme.error, size: 20),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () => _deleteFile(file.fileId, file.name),
-                ),
-              ],
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                child: file.driveId != null
+                    ? Consumer(
+                        builder: (context, ref, _) {
+                          final thumbAsync = ref.watch(thumbnailProvider(file.driveId!));
+                          return thumbAsync.when(
+                            data: (bytes) {
+                              if (bytes != null) {
+                                return Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    Image.memory(bytes, fit: BoxFit.cover),
+                                    Positioned(
+                                      top: 8,
+                                      right: 8,
+                                      child: GestureDetector(
+                                        onTap: () => _deleteFile(file.fileId, file.name),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: BoxDecoration(
+                                            color: colorScheme.error.withValues(alpha: 0.8),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Icon(Icons.delete_outline, color: colorScheme.onError, size: 16),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }
+                              return _buildFallbackThumb(iconColor, file, colorScheme);
+                            },
+                            loading: () => _buildFallbackThumb(iconColor, file, colorScheme),
+                            error: (_, __) => _buildFallbackThumb(iconColor, file, colorScheme),
+                          );
+                        },
+                      )
+                    : _buildFallbackThumb(iconColor, file, colorScheme),
+              ),
             ),
-            const Spacer(),
-            Text(file.name, style: textTheme.labelLarge, maxLines: 2, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 4),
-            Text(_formatSize(file.sizeBytes), style: textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            )),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(file.name, style: textTheme.labelLarge, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 4),
+                  Text(_formatSize(file.sizeBytes), style: textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  )),
+                ],
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildFallbackThumb(Color iconColor, _CachedFileInfo file, ColorScheme colorScheme) {
+    return Container(
+      color: iconColor.withValues(alpha: 0.1),
+      child: Center(
+        child: Icon(_iconForMime(file.mimeType), color: iconColor, size: 48),
+      ),
+    );
+  }
+
+  Widget _buildIconThumb(Color iconColor, _CachedFileInfo file) {
+    return Container(
+      decoration: BoxDecoration(
+        color: iconColor.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(_iconForMime(file.mimeType), color: iconColor, size: 24),
     );
   }
 }
@@ -484,6 +614,7 @@ class _CachedFileInfo {
   final String fileId;
   final String name;
   final String mimeType;
+  final String? driveId;
   final int sizeBytes;
   final int addedAt;
   final String addedAtReadable;
@@ -492,6 +623,7 @@ class _CachedFileInfo {
     required this.fileId,
     required this.name,
     required this.mimeType,
+    this.driveId,
     required this.sizeBytes,
     required this.addedAt,
     required this.addedAtReadable,

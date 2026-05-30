@@ -326,7 +326,8 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
         for (final entry in updatedFiles.entries) {
           final existingFile = entry.value;
           if (existingFile.name.toLowerCase() == finalName.toLowerCase()) {
-            final cachedFile = File('${cacheDir.path}/${entry.key}.pdf');
+            final ext = extensionForMimeType(existingFile.mimeType);
+            final cachedFile = File('${cacheDir.path}/${entry.key}$ext');
             final cachedFileExists = await cachedFile.exists();
             if (existingFile.driveId != null || cachedFileExists) {
               sameNameId ??= entry.key;
@@ -342,7 +343,8 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
         }
         if (duplicateId != null) {
           if (replaceDuplicate) {
-            final cachedFile = File('${cacheDir.path}/$duplicateId.pdf');
+            final dupExt = extensionForMimeType(updatedFiles[duplicateId]!.mimeType);
+            final cachedFile = File('${cacheDir.path}/$duplicateId$dupExt');
             if (await cachedFile.exists()) {
               await cachedFile.delete();
             }
@@ -359,7 +361,8 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
             updatedFiles.values.map((file) => file.name),
           );
         } else if (sameNameId != null && replaceDuplicate) {
-          final cachedFile = File('${cacheDir.path}/$sameNameId.pdf');
+          final sameExt = extensionForMimeType(updatedFiles[sameNameId]!.mimeType);
+          final cachedFile = File('${cacheDir.path}/$sameNameId$sameExt');
           if (await cachedFile.exists()) {
             await cachedFile.delete();
           }
@@ -373,7 +376,8 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
           await cacheDir.create(recursive: true);
         }
 
-        final localFile = File('${cacheDir.path}/$localId.pdf');
+        final ext = extensionForMimeType(mimeType);
+        final localFile = File('${cacheDir.path}/$localId$ext');
         await file.copy(localFile.path);
 
         if (tags != null) {
@@ -399,7 +403,13 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     }
 
     if (filesProcessed > 0) {
-      state = state.copyWith(files: updatedFiles, allTags: updatedAllTags);
+      state = state.copyWith(
+        files: updatedFiles,
+        allTags: updatedAllTags,
+        syncMetadata: state.syncMetadata.copyWith(
+          lastSyncedAt: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
       await ref.read(syncServiceProvider).saveAndSync(state);
       _syncPendingFiles();
     }
@@ -440,12 +450,14 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
           await cacheDir.create(recursive: true);
         }
 
-        final localFile = File('${cacheDir.path}/$localId.pdf');
+        final mimeType = _getMimeType(name);
+        final ext = extensionForMimeType(mimeType);
+        final localFile = File('${cacheDir.path}/$localId$ext');
         await file.copy(localFile.path);
 
         final newFile = QuireFileModel(
           name: name,
-          mimeType: _getMimeType(name),
+          mimeType: mimeType,
           folderId: folderId,
           addedAt: DateTime.now().millisecondsSinceEpoch,
           tags: [],
@@ -461,7 +473,12 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     }
 
     if (stateChanged) {
-      state = state.copyWith(files: updatedFiles);
+      state = state.copyWith(
+        files: updatedFiles,
+        syncMetadata: state.syncMetadata.copyWith(
+          lastSyncedAt: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
       await ref.read(syncServiceProvider).saveAndSync(state);
       _syncPendingFiles();
     }
@@ -521,7 +538,8 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
         final localId = entry.key;
         final fileModel = entry.value;
 
-        final localFile = File('${cacheDir.path}/$localId.pdf');
+        final ext = extensionForMimeType(fileModel.mimeType);
+        final localFile = File('${cacheDir.path}/$localId$ext');
         if (await localFile.exists()) {
           try {
             String parentDriveId = rootId;
@@ -729,7 +747,8 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
         }
       }
 
-      final localFile = File('${cacheDir.path}/$id.pdf');
+      final fileExt = extensionForMimeType(file.mimeType);
+      final localFile = File('${cacheDir.path}/$id$fileExt');
       if (await localFile.exists()) {
         await localFile.delete();
       }
@@ -743,7 +762,9 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
 
   Future<void> removeFromCache(String fileId) async {
     final dir = await getApplicationDocumentsDirectory();
-    final cacheFile = File('${dir.path}/pdf_cache/$fileId.pdf');
+    final dbFile = state.files[fileId];
+    final ext = dbFile != null ? extensionForMimeType(dbFile.mimeType) : '.bin';
+    final cacheFile = File('${dir.path}/pdf_cache/$fileId$ext');
     if (await cacheFile.exists()) {
       await cacheFile.delete();
     }
@@ -759,5 +780,28 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
         }
       }
     }
+  }
+}
+
+String extensionForMimeType(String mimeType) {
+  switch (mimeType) {
+    case 'application/pdf':
+      return '.pdf';
+    case 'application/msword':
+      return '.doc';
+    case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+      return '.docx';
+    case 'application/vnd.ms-powerpoint':
+      return '.ppt';
+    case 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+      return '.pptx';
+    case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+      return '.xlsx';
+    case 'text/plain':
+      return '.txt';
+    case 'application/octet-stream':
+      return '.bin';
+    default:
+      return '.bin';
   }
 }

@@ -41,16 +41,14 @@ class CacheService {
   Future<void> clearCacheExceptRecent(int keepCount) async {
     final cacheDir = await _getCacheDir();
     try {
-      final files = cacheDir.listSync().whereType<File>().toList();
-      
-      // Sort by last accessed time descending (newest first)
-      files.sort((a, b) {
-        final aTime = a.lastAccessedSync();
-        final bTime = b.lastAccessedSync();
-        return bTime.compareTo(aTime);
-      });
-      
-      // Keep the first N files, delete the rest
+      final files = cacheDir.listSync()
+        .whereType<File>()
+        .where((f) => !f.path.endsWith('_thumb.jpg'))
+        .toList();
+
+      files.sort((a, b) =>
+        b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+
       for (int i = keepCount; i < files.length; i++) {
         await files[i].delete();
       }

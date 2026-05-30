@@ -10,7 +10,6 @@ import '../providers/auth_provider.dart';
 import '../services/sharing_service.dart';
 import '../models/database_model.dart';
 import '../widgets/expandable_fab.dart';
-import '../widgets/tag_picker_sheet.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
@@ -63,22 +62,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     return copiedFiles;
-  }
-
-  Future<bool> _hasExistingFileForName(String name) async {
-    final dir = await getApplicationDocumentsDirectory();
-    final cacheDir = Directory('${dir.path}/pdf_cache');
-    final database = ref.read(databaseProvider);
-
-    for (final entry in database.files.entries) {
-      if (entry.value.name.toLowerCase() != name.toLowerCase()) continue;
-      if (entry.value.driveId != null) return true;
-
-      final cachedFile = File('${cacheDir.path}/${entry.key}.pdf');
-      if (await cachedFile.exists()) return true;
-    }
-
-    return false;
   }
 
   Future<void> _deleteImportCopies(List<SharedMediaFile> files) async {
@@ -182,61 +165,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           return;
         }
 
-        // Extract a clean default name
-        String initialName = files.first.path
-            .split(Platform.pathSeparator)
-            .last;
-        if (initialName.contains('share_') ||
-            initialName.contains(RegExp(r'[0-9]{10}'))) {
-          initialName = 'Document.pdf';
-        }
-
-        // Check for duplicate before showing the picker
-        final isDuplicate = await _hasExistingFileForName(initialName);
-        if (!mounted) {
-          await _deleteImportCopies(stableFiles);
-          return;
-        }
-
-        final tagResult = await showTagPickerSheet(
-          context: context,
-          filename: initialName,
-          isDuplicate: isDuplicate,
-        );
-
-        if (tagResult == null) {
-          await _deleteImportCopies(stableFiles);
-          return;
-        }
-        if (!mounted) {
-          await _deleteImportCopies(stableFiles);
-          return;
-        }
-
-        final customName = tagResult.customName ?? initialName;
-
-        final folderLabel =
-            (tagResult.folderName != null && tagResult.folderName!.isNotEmpty)
-            ? tagResult.folderName!
-            : 'Inbox';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Saving "$customName" to $folderLabel...'),
+          const SnackBar(
+            content: Text('Saving to Inbox...'),
             behavior: SnackBarBehavior.floating,
           ),
         );
 
         try {
-          final namesList = List.filled(stableFiles.length, customName);
           await ref
               .read(databaseProvider.notifier)
-              .processSharedFiles(
-                stableFiles,
-                customNames: namesList,
-                tags: tagResult.folderTags,
-                folderName: tagResult.folderName,
-                replaceDuplicate: tagResult.replaceDuplicate,
-              );
+              .processSharedFiles(stableFiles);
         } catch (e) {
           if (mounted) {
             final msg = (e is StateError && e.message.contains('authenticated'))
