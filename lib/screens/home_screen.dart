@@ -9,6 +9,7 @@ import '../providers/database_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/sharing_service.dart';
 import '../models/database_model.dart';
+import '../utils/mime_utils.dart';
 import '../widgets/expandable_fab.dart';
 import '../widgets/tag_picker_sheet.dart';
 import 'package:file_picker/file_picker.dart';

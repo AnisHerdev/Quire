@@ -6,6 +6,7 @@ import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:path_provider/path_provider.dart';
 // ignore: depend_on_referenced_packages
 import 'package:http/http.dart' as http;
+import '../utils/mime_utils.dart';
 
 class _GoogleAuthClient extends http.BaseClient {
   final Map<String, String> _headers;
@@ -270,7 +271,7 @@ class DriveService {
     }
   }
 
-  Future<Uint8List> getPdfBytes(String fileId, String? driveId) async {
+  Future<Uint8List> getPdfBytes(String fileId, String? driveId, {String mimeType = 'application/pdf'}) async {
     try {
       final dir = await getApplicationDocumentsDirectory();
       final cacheDir = Directory('${dir.path}/pdf_cache');
@@ -278,14 +279,19 @@ class DriveService {
         await cacheDir.create(recursive: true);
       }
       
-      final localFile = File('${cacheDir.path}/$fileId.pdf');
+      final ext = extensionForMimeType(mimeType);
+      final localFile = File('${cacheDir.path}/$fileId$ext');
       
       if (await localFile.exists()) {
         return await localFile.readAsBytes();
       }
 
       if (driveId == null || driveId.isEmpty) {
-        throw Exception('File is still uploading and is not available offline.');
+        throw Exception(
+          'This file has not finished uploading to the cloud yet '
+          'and the local copy was removed from this device. '
+          'Please connect to the internet, wait for the file to sync, then try again.',
+        );
       }
 
       final bytes = await downloadFile(driveId);
@@ -295,7 +301,7 @@ class DriveService {
       
       return bytes;
     } catch (e) {
-      throw Exception('Failed to load PDF: $e');
+      throw Exception('Failed to load file: $e');
     }
   }
 

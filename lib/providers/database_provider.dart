@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../models/database_model.dart';
 import '../services/sync_service.dart';
 import '../utils/duplicate_filename.dart';
+import '../utils/mime_utils.dart';
 import 'auth_provider.dart';
 import 'drive_provider.dart';
 
@@ -41,6 +42,7 @@ class _ShareRequest {
 
 class DatabaseNotifier extends Notifier<QuireDatabase> {
   bool _isProcessingSharedFiles = false;
+  bool _isSyncingPendingFiles = false;
   final List<_ShareRequest> _pendingShareQueue = [];
 
   @override
@@ -64,6 +66,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     if (googleAccount != null) {
       ref.read(driveServiceProvider).setAccount(googleAccount);
       await _performBackgroundSync();
+      _syncPendingFiles();
     }
   }
 
@@ -485,8 +488,14 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
   }
 
   Future<void> _syncPendingFiles() async {
+    if (_isSyncingPendingFiles) return;
+    _isSyncingPendingFiles = true;
+
     final driveService = ref.read(driveServiceProvider);
-    if (!driveService.isReady) return;
+    if (!driveService.isReady) {
+      _isSyncingPendingFiles = false;
+      return;
+    }
 
     try {
       final rootId = await driveService.getOrCreateQuireRootFolder();
@@ -512,7 +521,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
             if (parentFolder != null && parentFolder.driveId != null) {
               parentDriveId = parentFolder.driveId!;
             } else {
-              continue; // Parent not synced yet, skip for now
+              continue;
             }
           }
 
@@ -538,6 +547,12 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
         final localId = entry.key;
         final fileModel = entry.value;
 
+        // Skip files that have already exceeded max retries
+        if (fileModel.syncRetries >= 3) {
+          print('Sync permanently failed for $localId after ${fileModel.syncRetries} attempts.');
+          continue;
+        }
+
         final ext = extensionForMimeType(fileModel.mimeType);
         final localFile = File('${cacheDir.path}/$localId$ext');
         if (await localFile.exists()) {
@@ -548,7 +563,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
               if (folder != null && folder.driveId != null) {
                 parentDriveId = folder.driveId!;
               } else {
-                continue; // Parent folder not synced yet
+                continue;
               }
             }
 
@@ -563,11 +578,42 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
               updatedFiles[localId] = fileModel.copyWith(
                 driveId: driveFile.id,
                 syncStatus: 'synced',
+                syncRetries: 0,
+                lastSyncError: null,
               );
               dbChanged = true;
             }
           } catch (e) {
-            print('Background sync failed for $localId: $e');
+            final errorMsg = e.toString();
+            print('Background sync failed for $localId: $errorMsg');
+
+            final newRetries = fileModel.syncRetries + 1;
+            updatedFiles[localId] = fileModel.copyWith(
+              syncRetries: newRetries,
+              lastSyncError: errorMsg,
+            );
+            dbChanged = true;
+
+            // Schedule retry with exponential backoff if under limit
+            if (newRetries < 3) {
+              final delay = switch (newRetries) {
+                1 => const Duration(seconds: 30),
+                2 => const Duration(minutes: 2),
+                _ => const Duration(minutes: 10),
+              };
+              Future.delayed(delay, () {
+                if (_isSyncingPendingFiles) return;
+                _syncPendingFiles();
+              });
+            }
+          }
+        } else {
+          // Local cache file is missing — mark with error so user knows why
+          if (fileModel.lastSyncError == null) {
+            updatedFiles[localId] = fileModel.copyWith(
+              lastSyncError: 'Local file was removed from device before sync completed.',
+            );
+            dbChanged = true;
           }
         }
       }
@@ -578,6 +624,8 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
       }
     } catch (e) {
       print('Failed to sync pending items: $e');
+    } finally {
+      _isSyncingPendingFiles = false;
     }
   }
 
@@ -780,28 +828,5 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
         }
       }
     }
-  }
-}
-
-String extensionForMimeType(String mimeType) {
-  switch (mimeType) {
-    case 'application/pdf':
-      return '.pdf';
-    case 'application/msword':
-      return '.doc';
-    case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-      return '.docx';
-    case 'application/vnd.ms-powerpoint':
-      return '.ppt';
-    case 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
-      return '.pptx';
-    case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
-      return '.xlsx';
-    case 'text/plain':
-      return '.txt';
-    case 'application/octet-stream':
-      return '.bin';
-    default:
-      return '.bin';
   }
 }

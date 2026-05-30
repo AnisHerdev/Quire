@@ -109,6 +109,8 @@ class QuireFileModel {
   final List<String> tags;
   final String? driveId;
   final String syncStatus;
+  final int syncRetries;
+  final String? lastSyncError;
 
   const QuireFileModel({
     required this.name,
@@ -118,6 +120,8 @@ class QuireFileModel {
     required this.tags,
     this.driveId,
     this.syncStatus = 'synced',
+    this.syncRetries = 0,
+    this.lastSyncError,
   });
 
   factory QuireFileModel.fromJson(Map<String, dynamic> json) {
@@ -129,6 +133,8 @@ class QuireFileModel {
       tags: (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       driveId: json['driveId'] as String?,
       syncStatus: json['syncStatus'] as String? ?? 'synced',
+      syncRetries: json['syncRetries'] as int? ?? 0,
+      lastSyncError: json['lastSyncError'] as String?,
     );
   }
 
@@ -140,6 +146,8 @@ class QuireFileModel {
         'tags': tags,
         if (driveId != null) 'driveId': driveId,
         'syncStatus': syncStatus,
+        if (syncRetries > 0) 'syncRetries': syncRetries,
+        if (lastSyncError != null) 'lastSyncError': lastSyncError,
       };
 
   QuireFileModel copyWith({
@@ -151,6 +159,8 @@ class QuireFileModel {
     List<String>? tags,
     String? driveId,
     String? syncStatus,
+    int? syncRetries,
+    String? lastSyncError,
   }) {
     return QuireFileModel(
       name: name ?? this.name,
@@ -160,6 +170,8 @@ class QuireFileModel {
       tags: tags ?? this.tags,
       driveId: driveId ?? this.driveId,
       syncStatus: syncStatus ?? this.syncStatus,
+      syncRetries: syncRetries ?? this.syncRetries,
+      lastSyncError: lastSyncError ?? this.lastSyncError,
     );
   }
 }

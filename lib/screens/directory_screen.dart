@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
 import '../providers/database_provider.dart';
 import '../models/database_model.dart';
+import '../utils/mime_utils.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/expandable_fab.dart';
 import '../widgets/move_file_dialog.dart';

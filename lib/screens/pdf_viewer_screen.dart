@@ -130,7 +130,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
       final file = database.files[widget.fileId];
       if (file == null) throw Exception('File not found in database');
       
-      final bytes = await driveService.getPdfBytes(widget.fileId, file.driveId);
+      final bytes = await driveService.getPdfBytes(widget.fileId, file.driveId, mimeType: file.mimeType);
       if (mounted) {
         setState(() {
           _pdfBytes = bytes;
