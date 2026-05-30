@@ -1001,7 +1001,20 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
             final dir = await getApplicationDocumentsDirectory();
             final ext = extensionForMimeType(file.mimeType);
             final filePath = '${dir.path}/pdf_cache/$fileId$ext';
-            await OpenFilex.open(filePath, type: file.mimeType);
+            try {
+              final result = await OpenFilex.open(filePath, type: file.mimeType);
+              if (result != null && result.type == 'error' && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Could not open file: ${result.message}')),
+                );
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Could not open file: $e')),
+                );
+              }
+            }
           }
         }
       },
@@ -1179,7 +1192,20 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
             final dir = await getApplicationDocumentsDirectory();
             final ext = extensionForMimeType(file.mimeType);
             final filePath = '${dir.path}/pdf_cache/$fileId$ext';
-            await OpenFilex.open(filePath, type: file.mimeType);
+            try {
+              final result = await OpenFilex.open(filePath, type: file.mimeType);
+              if (result != null && result.type == 'error' && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Could not open file: ${result.message}')),
+                );
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Could not open file: $e')),
+                );
+              }
+            }
           }
         }
       },
