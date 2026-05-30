@@ -343,6 +343,7 @@ class DriveService {
       
       return '${formatBytes(usageBytes)} used of ${formatBytes(limitBytes)}';
     } catch (e) {
+      if (e.toString().contains('401')) return 'Connecting to Drive...';
       return 'Storage unavailable';
     }
   }

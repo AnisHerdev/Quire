@@ -525,7 +525,43 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
-            Text(dateStr, style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+            Row(
+              children: [
+                if (file.lastSyncError != null) ...[
+                  Icon(
+                    file.lastSyncError!.contains('401') ? Icons.hourglass_empty : Icons.error_outline,
+                    size: 12,
+                    color: file.lastSyncError!.contains('401') ? colorScheme.onSurfaceVariant : colorScheme.error,
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Tooltip(
+                      message: file.lastSyncError!,
+                      child: Text(
+                        file.lastSyncError!.contains('401') ? 'Waiting for Drive...' : 'Sync error',
+                        style: textTheme.labelSmall?.copyWith(
+                          color: file.lastSyncError!.contains('401') ? colorScheme.onSurfaceVariant : colorScheme.error,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  Icon(
+                    file.syncStatus == 'synced' ? Icons.cloud_done : Icons.cloud_upload,
+                    size: 12,
+                    color: colorScheme.outline,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    file.syncStatus == 'synced' ? 'Synced' : 'Pending',
+                    style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                ],
+                const SizedBox(width: 12),
+                Text(dateStr, style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+              ],
+            ),
           ],
         ),
       ),

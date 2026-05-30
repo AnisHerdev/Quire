@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:path_provider/path_provider.dart';
@@ -44,30 +46,66 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
   bool _isProcessingSharedFiles = false;
   bool _isSyncingPendingFiles = false;
   final List<_ShareRequest> _pendingShareQueue = [];
+  Timer? _periodicSyncTimer;
 
   @override
   QuireDatabase build() {
+    ref.onDispose(() {
+      _periodicSyncTimer?.cancel();
+    });
     return QuireDatabase.empty();
   }
 
   Future<void> init() async {
     final syncService = ref.read(syncServiceProvider);
-
-    // 1. Instantly load local DB for fast UI
+    debugPrint('[Sync] init: loading local database');
     state = await syncService.loadLocalDatabase();
+    debugPrint('[Sync] init: loaded ${state.files.length} files, ${state.folders.length} folders');
 
-    // 2. Trigger background cloud sync if logged in
     final authService = ref.read(authServiceProvider);
     var googleAccount = authService.currentGoogleAccount;
     if (googleAccount == null) {
+      debugPrint('[Sync] init: no current Google account, trying signInSilently');
       googleAccount = await authService.signInSilently();
     }
 
     if (googleAccount != null) {
-      ref.read(driveServiceProvider).setAccount(googleAccount);
+      debugPrint('[Sync] init: Google account found, setting up DriveService');
+      final driveService = ref.read(driveServiceProvider);
+      driveService.setAccount(googleAccount);
+
+      // Proactively create Quire root folder so new accounts see it immediately
+      try {
+        final rootId = await driveService.getOrCreateQuireRootFolder();
+        debugPrint('[Sync] init: Quire root folder ready (driveId: $rootId)');
+      } catch (e) {
+        debugPrint('[Sync] init: getOrCreateQuireRootFolder failed: $e');
+      }
+
       await _performBackgroundSync();
-      _syncPendingFiles();
+
+      final pendingCount = state.files.values.where((f) => f.syncStatus == 'pending').length;
+      if (pendingCount > 0) {
+        debugPrint('[Sync] init: $pendingCount pending files, starting sync');
+        _syncPendingFiles();
+      }
+
+      // Periodic retry for stuck pending files (every 60s)
+      _startPeriodicSync();
+    } else {
+      debugPrint('[Sync] init: no Google account available — sync disabled until next sign-in');
     }
+  }
+
+  void _startPeriodicSync() {
+    _periodicSyncTimer?.cancel();
+    _periodicSyncTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      final pendingCount = state.files.values.where((f) => f.syncStatus == 'pending').length;
+      if (pendingCount > 0) {
+        debugPrint('[Sync] periodic: $pendingCount pending files, triggering sync');
+        _syncPendingFiles();
+      }
+    });
   }
 
   Future<void> _performBackgroundSync() async {
@@ -488,17 +526,29 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
   }
 
   Future<void> _syncPendingFiles() async {
-    if (_isSyncingPendingFiles) return;
-    _isSyncingPendingFiles = true;
-
-    final driveService = ref.read(driveServiceProvider);
-    if (!driveService.isReady) {
-      _isSyncingPendingFiles = false;
+    if (_isSyncingPendingFiles) {
+      debugPrint('[Sync] _syncPendingFiles skipped — already in progress');
       return;
     }
+    _isSyncingPendingFiles = true;
+    debugPrint('[Sync] _syncPendingFiles started');
 
     try {
+      final driveService = ref.read(driveServiceProvider);
+      if (!driveService.isReady) {
+        debugPrint('[Sync] driveService not ready, attempting re-auth...');
+        final recovered = await _ensureDriveAuthenticated();
+        if (!recovered) {
+          debugPrint('[Sync] _ensureDriveAuthenticated failed — aborting sync');
+          return;
+        }
+        debugPrint('[Sync] re-auth succeeded, continuing sync');
+      }
+
+      debugPrint('[Sync] ensuring Quire root folder exists');
       final rootId = await driveService.getOrCreateQuireRootFolder();
+      debugPrint('[Sync] Quire root folder: $rootId');
+
       final dir = await getApplicationDocumentsDirectory();
       final cacheDir = Directory('${dir.path}/pdf_cache');
 
@@ -510,6 +560,9 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
       final pendingFolders = state.folders.entries
           .where((e) => e.value.syncStatus == 'pending')
           .toList();
+      if (pendingFolders.isNotEmpty) {
+        debugPrint('[Sync] uploading ${pendingFolders.length} pending folder(s)');
+      }
       for (var entry in pendingFolders) {
         final folderId = entry.key;
         final folderModel = entry.value;
@@ -521,6 +574,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
             if (parentFolder != null && parentFolder.driveId != null) {
               parentDriveId = parentFolder.driveId!;
             } else {
+              debugPrint('[Sync] folder $folderId: parent not synced yet, skipping');
               continue;
             }
           }
@@ -529,13 +583,14 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
             folderModel.name,
             parentDriveId,
           );
+          debugPrint('[Sync] folder $folderId ("${folderModel.name}") synced → driveId: $driveId');
           updatedFolders[folderId] = folderModel.copyWith(
             driveId: driveId,
             syncStatus: 'synced',
           );
           dbChanged = true;
         } catch (e) {
-          print('Folder sync failed for $folderId: $e');
+          debugPrint('[Sync] folder sync failed for $folderId ("${folderModel.name}"): $e');
         }
       }
 
@@ -543,19 +598,23 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
       final pendingFiles = state.files.entries
           .where((e) => e.value.syncStatus == 'pending')
           .toList();
+      debugPrint('[Sync] found ${pendingFiles.length} pending file(s) to upload');
+
       for (var entry in pendingFiles) {
         final localId = entry.key;
         final fileModel = entry.value;
 
-        // Skip files that have already exceeded max retries
         if (fileModel.syncRetries >= 3) {
-          print('Sync permanently failed for $localId after ${fileModel.syncRetries} attempts.');
+          debugPrint('[Sync] file $localId ("${fileModel.name}"): permanently failed after ${fileModel.syncRetries} attempts, skipping');
           continue;
         }
 
         final ext = extensionForMimeType(fileModel.mimeType);
         final localFile = File('${cacheDir.path}/$localId$ext');
-        if (await localFile.exists()) {
+        final fileExists = await localFile.exists();
+        debugPrint('[Sync] file $localId ("${fileModel.name}"): local cache exists=$fileExists, retry=${fileModel.syncRetries}');
+
+        if (fileExists) {
           try {
             String parentDriveId = rootId;
             if (fileModel.folderId != null) {
@@ -563,10 +622,12 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
               if (folder != null && folder.driveId != null) {
                 parentDriveId = folder.driveId!;
               } else {
+                debugPrint('[Sync] file $localId: folder ${fileModel.folderId} not synced yet, skipping');
                 continue;
               }
             }
 
+            debugPrint('[Sync] uploading file $localId ("${fileModel.name}") to Drive folder $parentDriveId');
             final driveFile = await driveService.uploadVisibleFile(
               localFile,
               fileModel.mimeType,
@@ -575,6 +636,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
             );
 
             if (driveFile.id != null) {
+              debugPrint('[Sync] file $localId ("${fileModel.name}") synced → driveId: ${driveFile.id}');
               updatedFiles[localId] = fileModel.copyWith(
                 driveId: driveFile.id,
                 syncStatus: 'synced',
@@ -585,7 +647,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
             }
           } catch (e) {
             final errorMsg = e.toString();
-            print('Background sync failed for $localId: $errorMsg');
+            debugPrint('[Sync] upload failed for $localId ("${fileModel.name}"): $errorMsg');
 
             final newRetries = fileModel.syncRetries + 1;
             updatedFiles[localId] = fileModel.copyWith(
@@ -594,22 +656,19 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
             );
             dbChanged = true;
 
-            // Schedule retry with exponential backoff if under limit
             if (newRetries < 3) {
               final delay = switch (newRetries) {
                 1 => const Duration(seconds: 30),
                 2 => const Duration(minutes: 2),
                 _ => const Duration(minutes: 10),
               };
-              Future.delayed(delay, () {
-                if (_isSyncingPendingFiles) return;
-                _syncPendingFiles();
-              });
+              debugPrint('[Sync] scheduling retry #$newRetries for $localId in ${delay.inSeconds}s');
+              _scheduleSyncRetry(delay);
             }
           }
         } else {
-          // Local cache file is missing — mark with error so user knows why
           if (fileModel.lastSyncError == null) {
+            debugPrint('[Sync] file $localId ("${fileModel.name}"): local cache missing, marking error');
             updatedFiles[localId] = fileModel.copyWith(
               lastSyncError: 'Local file was removed from device before sync completed.',
             );
@@ -619,14 +678,28 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
       }
 
       if (dbChanged) {
+        debugPrint('[Sync] saving changed state ($pendingFiles files processed)');
         state = state.copyWith(folders: updatedFolders, files: updatedFiles);
         await ref.read(syncServiceProvider).saveAndSync(state);
       }
     } catch (e) {
-      print('Failed to sync pending items: $e');
+      debugPrint('[Sync] _syncPendingFiles unexpected error: $e');
     } finally {
       _isSyncingPendingFiles = false;
+      debugPrint('[Sync] _syncPendingFiles finished');
     }
+  }
+
+  void _scheduleSyncRetry(Duration delay) {
+    Future.delayed(delay, () {
+      if (!_isSyncingPendingFiles) {
+        debugPrint('[Sync] retry timer fired, calling _syncPendingFiles');
+        _syncPendingFiles();
+      } else {
+        debugPrint('[Sync] retry timer fired but sync already in progress, rescheduling...');
+        _scheduleSyncRetry(const Duration(seconds: 30));
+      }
+    });
   }
 
   Future<void> _moveFilesInDrive(

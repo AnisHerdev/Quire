@@ -11,6 +11,7 @@ class AuthService {
       'https://www.googleapis.com/auth/drive.file',
       'https://www.googleapis.com/auth/drive.appdata'
     ],
+
   );
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
@@ -34,6 +35,15 @@ class AuthService {
 
       _currentGoogleAccount = googleUser;
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      if (googleAuth.idToken == null) {
+        throw Exception(
+          'Google Sign-In did not return an ID token. '
+          'On Android, this requires a serverClientId in GoogleSignIn config. '
+          'Get it from Firebase Console -> Project Settings -> General -> '
+          'Web apps -> Web client ID, then uncomment serverClientId in auth_service.dart.',
+        );
+      }
 
       final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,

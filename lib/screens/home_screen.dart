@@ -393,27 +393,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     try {
       FilePickerResult? result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'jpg', 'jpeg', 'png', 'gif', 'svg', 'zip', 'gdoc', 'gsheet', 'gslides'],
+        type: FileType.any,
         allowMultiple: true,
       );
 
       if (result != null) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Processing ${result.files.length} file(s)...'),
-          ),
-        );
 
         final paths = <String>[];
         final names = <String>[];
+        int skipped = 0;
 
         for (var pickedFile in result.files) {
-          if (pickedFile.path != null) {
+          if (pickedFile.path != null && isSupportedExtension(pickedFile.name)) {
             paths.add(pickedFile.path!);
             names.add(pickedFile.name);
+          } else {
+            skipped++;
           }
+        }
+
+        if (skipped > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(skipped == 1
+                  ? 'Skipped 1 unsupported file'
+                  : 'Skipped $skipped unsupported files'),
+            ),
+          );
         }
 
         if (paths.isNotEmpty) {

@@ -150,25 +150,34 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
 
     try {
       FilePickerResult? result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'jpg', 'jpeg', 'png', 'gif', 'svg', 'zip', 'gdoc', 'gsheet', 'gslides'],
+        type: FileType.any,
         allowMultiple: true,
       );
 
       if (result != null) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Processing ${result.files.length} file(s)...')),
-        );
 
         final paths = <String>[];
         final names = <String>[];
+        int skipped = 0;
 
         for (var pickedFile in result.files) {
-          if (pickedFile.path != null) {
+          if (pickedFile.path != null && isSupportedExtension(pickedFile.name)) {
             paths.add(pickedFile.path!);
             names.add(pickedFile.name);
+          } else {
+            skipped++;
           }
+        }
+
+        if (skipped > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(skipped == 1
+                  ? 'Skipped 1 unsupported file'
+                  : 'Skipped $skipped unsupported files'),
+            ),
+          );
         }
 
         if (paths.isNotEmpty) {
@@ -1042,14 +1051,30 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                   Row(
                     children: [
                       Icon(
-                        file.syncStatus == 'synced' ? Icons.cloud_done : Icons.cloud_upload,
+                        file.lastSyncError != null
+                            ? (file.lastSyncError!.contains('401') ? Icons.hourglass_empty : Icons.error_outline)
+                            : file.syncStatus == 'synced' ? Icons.cloud_done : Icons.cloud_upload,
                         size: 14,
-                        color: colorScheme.outline,
+                        color: file.lastSyncError != null
+                            ? (file.lastSyncError!.contains('401') ? colorScheme.onSurfaceVariant : colorScheme.error)
+                            : colorScheme.outline,
                       ),
                       const SizedBox(width: 4),
-                      Text(
-                        file.syncStatus == 'synced' ? 'Synced' : 'Pending',
-                        style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+                      Flexible(
+                        child: Tooltip(
+                          message: file.lastSyncError ?? '',
+                          child: Text(
+                            file.lastSyncError != null
+                                ? (file.lastSyncError!.contains('401') ? 'Waiting for Drive...' : 'Sync error')
+                                : file.syncStatus == 'synced' ? 'Synced' : 'Pending',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: file.lastSyncError != null
+                                  ? (file.lastSyncError!.contains('401') ? colorScheme.onSurfaceVariant : colorScheme.error)
+                                  : colorScheme.outline,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -1270,14 +1295,28 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                   Row(
                     children: [
                       Icon(
-                        file.syncStatus == 'synced' ? Icons.cloud_done : Icons.cloud_upload,
+                        file.lastSyncError != null
+                            ? (file.lastSyncError!.contains('401') ? Icons.hourglass_empty : Icons.error_outline)
+                            : file.syncStatus == 'synced' ? Icons.cloud_done : Icons.cloud_upload,
                         size: 12,
-                        color: colorScheme.outline,
+                        color: file.lastSyncError != null
+                            ? (file.lastSyncError!.contains('401') ? colorScheme.onSurfaceVariant : colorScheme.error)
+                            : colorScheme.outline,
                       ),
                       const SizedBox(width: 4),
-                      Text(
-                        file.syncStatus == 'synced' ? 'Synced' : 'Pending',
-                        style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.outline, fontSize: 10),
+                      Tooltip(
+                        message: file.lastSyncError ?? '',
+                        child: Text(
+                          file.lastSyncError != null
+                              ? (file.lastSyncError!.contains('401') ? 'Waiting for Drive...' : 'Sync error')
+                              : file.syncStatus == 'synced' ? 'Synced' : 'Pending',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: file.lastSyncError != null
+                                ? (file.lastSyncError!.contains('401') ? colorScheme.onSurfaceVariant : colorScheme.error)
+                                : colorScheme.outline,
+                            fontSize: 10,
+                          ),
+                        ),
                       ),
                     ],
                   ),

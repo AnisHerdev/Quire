@@ -50,3 +50,8 @@ String mimeTypeForExtension(String filename) {
 String extensionForMimeType(String mimeType) {
   return _mimeToExtension[mimeType] ?? '.bin';
 }
+
+bool isSupportedExtension(String filename) {
+  final ext = filename.split('.').last.toLowerCase();
+  return _extensionToMime.containsKey(ext);
+}
