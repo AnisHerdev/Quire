@@ -7,6 +7,7 @@ import '../widgets/bottom_nav_bar.dart';
 import '../providers/database_provider.dart';
 import '../providers/thumbnail_provider.dart';
 import '../providers/view_mode_provider.dart';
+import '../providers/card_size_provider.dart';
 import '../services/cache_service.dart';
 
 class OfflineFilesScreen extends ConsumerStatefulWidget {
@@ -399,8 +400,8 @@ class _OfflineFilesScreenState extends ConsumerState<OfflineFilesScreen> {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: ref.watch(cardSizeProvider).maxExtent,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
         childAspectRatio: 0.85,

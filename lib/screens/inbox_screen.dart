@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/database_provider.dart';
 import '../models/database_model.dart';
 import '../widgets/move_file_dialog.dart';
+import '../providers/card_size_provider.dart';
 
 class InboxScreen extends ConsumerStatefulWidget {
   const InboxScreen({super.key});
@@ -294,8 +295,8 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                   )
                 : GridView.builder(
                     padding: const EdgeInsets.all(24),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
+                    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: ref.watch(cardSizeProvider).maxExtent,
                       crossAxisSpacing: 16,
                       mainAxisSpacing: 16,
                       childAspectRatio: 0.85,

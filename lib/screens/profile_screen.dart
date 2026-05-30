@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
+import '../providers/card_size_provider.dart';
 import '../providers/drive_provider.dart';
 import '../services/cache_service.dart';
 
@@ -200,6 +201,42 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         onChanged: (val) {
                           ref.read(themeProvider.notifier).toggleTheme(context);
                         },
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.grid_view, color: colorScheme.onSurfaceVariant, size: 20),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Card Size', style: textTheme.labelLarge?.copyWith(color: colorScheme.onSurface)),
+                                const SizedBox(height: 4),
+                                Text('Adjust grid card dimensions', style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant, fontSize: 14)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          SegmentedButton<CardSize>(
+                            segments: const [
+                              ButtonSegment(value: CardSize.small, label: Text('S', style: TextStyle(fontSize: 12))),
+                              ButtonSegment(value: CardSize.medium, label: Text('M', style: TextStyle(fontSize: 12))),
+                              ButtonSegment(value: CardSize.large, label: Text('L', style: TextStyle(fontSize: 12))),
+                            ],
+                            selected: {ref.watch(cardSizeProvider)},
+                            onSelectionChanged: (selected) {
+                              ref.read(cardSizeProvider.notifier).setSize(selected.first);
+                            },
+                            style: ButtonStyle(
+                              visualDensity: VisualDensity.compact,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const Divider(height: 1),

@@ -16,6 +16,7 @@ import '../widgets/bottom_nav_bar.dart';
 import '../providers/thumbnail_provider.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 import '../providers/view_mode_provider.dart';
+import '../providers/card_size_provider.dart';
 
 class DirectoryScreen extends ConsumerStatefulWidget {
   final String folderId;
@@ -768,8 +769,8 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                   const SizedBox(height: 12),
                   if (!_isEditMode)
                     GridView.builder(
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
+                      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: ref.watch(cardSizeProvider).maxExtent,
                         crossAxisSpacing: 16,
                         mainAxisSpacing: 16,
                         childAspectRatio: 1.0,
@@ -789,8 +790,8 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                     )
                   else
                     ReorderableGridView.builder(
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
+                      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: ref.watch(cardSizeProvider).maxExtent,
                         crossAxisSpacing: 16,
                         mainAxisSpacing: 16,
                         childAspectRatio: 1.0,
@@ -834,8 +835,8 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                     )
                   else
                     GridView.builder(
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
+                      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: ref.watch(cardSizeProvider).maxExtent,
                         crossAxisSpacing: 16,
                         mainAxisSpacing: 16,
                         childAspectRatio: 0.85,

@@ -14,6 +14,7 @@ import '../widgets/expandable_fab.dart';
 import '../widgets/tag_picker_sheet.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
+import '../providers/card_size_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -164,6 +165,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (!mounted) return;
       // Initialize the database (loads cache instantly, then syncs to cloud)
       ref.read(databaseProvider.notifier).init();
+      ref.read(cardSizeProvider.notifier).init();
 
       // Initialize OS share sheet listener
       ref.read(sharingServiceProvider).init((files) async {
@@ -806,8 +808,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   else if (!_isEditMode)
                     GridView.builder(
                       gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
+                          SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: ref.watch(cardSizeProvider).maxExtent,
                             crossAxisSpacing: 16,
                             mainAxisSpacing: 16,
                             childAspectRatio: 1.0,
@@ -828,8 +830,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   else
                     ReorderableGridView.builder(
                       gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
+                          SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: ref.watch(cardSizeProvider).maxExtent,
                             crossAxisSpacing: 16,
                             mainAxisSpacing: 16,
                             childAspectRatio: 1.0,
