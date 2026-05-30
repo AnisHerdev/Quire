@@ -221,20 +221,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          SegmentedButton<CardSize>(
-                            segments: const [
-                              ButtonSegment(value: CardSize.small, label: Text('S', style: TextStyle(fontSize: 12))),
-                              ButtonSegment(value: CardSize.medium, label: Text('M', style: TextStyle(fontSize: 12))),
-                              ButtonSegment(value: CardSize.large, label: Text('L', style: TextStyle(fontSize: 12))),
-                            ],
-                            selected: {ref.watch(cardSizeProvider)},
-                            onSelectionChanged: (selected) {
-                              ref.read(cardSizeProvider.notifier).setSize(selected.first);
-                            },
-                            style: ButtonStyle(
-                              visualDensity: VisualDensity.compact,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: CardSize.values.map((size) {
+                              final selected = ref.watch(cardSizeProvider) == size;
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 2),
+                                child: SizedBox(
+                                  width: 36,
+                                  height: 32,
+                                  child: Material(
+                                    color: selected
+                                        ? colorScheme.primaryContainer
+                                        : colorScheme.surfaceContainerHigh,
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(8),
+                                      onTap: () => ref.read(cardSizeProvider.notifier).setSize(size),
+                                      child: Center(
+                                        child: Text(
+                                          size.name[0].toUpperCase(),
+                                          style: textTheme.labelSmall?.copyWith(
+                                            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                                            color: selected
+                                                ? colorScheme.onPrimaryContainer
+                                                : colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
                           ),
                         ],
                       ),
