@@ -321,7 +321,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
             ? customNames[index]
             : (sharedFile.path.split(Platform.pathSeparator).last);
 
-        final mimeType = sharedFile.mimeType ?? _getMimeType(finalName);
+        final mimeType = sharedFile.mimeType ?? mimeTypeForExtension(finalName);
         final fileSize = await file.length();
 
         String? duplicateId;
@@ -453,7 +453,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
           await cacheDir.create(recursive: true);
         }
 
-        final mimeType = _getMimeType(name);
+        final mimeType = mimeTypeForExtension(name);
         final ext = extensionForMimeType(mimeType);
         final localFile = File('${cacheDir.path}/$localId$ext');
         await file.copy(localFile.path);
@@ -729,24 +729,6 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
   ) async {
     state = state.copyWith(folders: updatedFolders);
     await ref.read(syncServiceProvider).saveAndSync(state);
-  }
-
-  String _getMimeType(String name) {
-    final ext = name.split('.').last.toLowerCase();
-    switch (ext) {
-      case 'pdf':
-        return 'application/pdf';
-      case 'doc':
-        return 'application/msword';
-      case 'docx':
-        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      case 'ppt':
-        return 'application/vnd.ms-powerpoint';
-      case 'pptx':
-        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
-      default:
-        return 'application/octet-stream';
-    }
   }
 
   Future<void> deleteFiles(

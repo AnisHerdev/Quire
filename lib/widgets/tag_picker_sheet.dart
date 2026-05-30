@@ -108,7 +108,7 @@ class _TagPickerSheetState extends ConsumerState<_TagPickerSheet> {
   void _submit() {
     var customName = _nameController.text.trim();
     if (customName.isEmpty) customName = 'Untitled Document';
-    if (!customName.toLowerCase().endsWith('.pdf')) customName += '.pdf';
+    // Keep the name exactly as typed — extension is derived from mime type elsewhere.
 
     String? folderName;
     List<String> folderTags = [];

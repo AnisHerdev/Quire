@@ -14,6 +14,7 @@ import 'package:open_filex/open_filex.dart';
 
 import '../providers/database_provider.dart';
 import '../providers/drive_provider.dart';
+import '../utils/mime_utils.dart';
 
 import '../providers/drive_provider.dart';
 
@@ -157,7 +158,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
     try {
       final dir = await getApplicationDocumentsDirectory();
       final cacheDir = Directory('${dir.path}/pdf_cache');
-      final localFile = File('${cacheDir.path}/${widget.fileId}.pdf');
+      final ext = file != null ? extensionForMimeType(file.mimeType) : '.pdf';
+      final localFile = File('${cacheDir.path}/${widget.fileId}$ext');
       
       if (await localFile.exists()) {
         // Copy to temp directory with the actual custom name so OS shares it properly
@@ -165,8 +167,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
         
         // Sanitize filename to avoid path issues
         var safeFileName = fileName.replaceAll(RegExp(r'[\\/]'), '_');
-        if (!safeFileName.toLowerCase().endsWith('.pdf')) {
-          safeFileName = '$safeFileName.pdf';
+        if (!safeFileName.toLowerCase().endsWith(ext)) {
+          safeFileName = '$safeFileName$ext';
         }
         
         final tempFile = File('${tempDir.path}/$safeFileName');
@@ -187,11 +189,15 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> {
   Future<void> _openExternally() async {
     if (_pdfBytes == null) return;
     try {
+      final database = ref.read(databaseProvider);
+      final file = database.files[widget.fileId];
+      if (file == null) throw Exception('File not found');
       final dir = await getApplicationDocumentsDirectory();
       final cacheDir = Directory('${dir.path}/pdf_cache');
-      final localFile = File('${cacheDir.path}/${widget.fileId}.pdf');
+      final ext = extensionForMimeType(file.mimeType);
+      final localFile = File('${cacheDir.path}/${widget.fileId}$ext');
       if (await localFile.exists()) {
-        await OpenFilex.open(localFile.path, type: 'application/pdf');
+        await OpenFilex.open(localFile.path, type: file.mimeType);
       }
     } catch (e) {
       if (mounted) {
