@@ -394,7 +394,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf', 'doc', 'docx', 'ppt', 'pptx'],
+        allowedExtensions: ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'jpg', 'jpeg', 'png', 'gif', 'svg', 'zip', 'gdoc', 'gsheet', 'gslides'],
         allowMultiple: true,
       );
 
