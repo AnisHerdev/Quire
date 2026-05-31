@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
 import '../providers/database_provider.dart';
 import '../models/database_model.dart';
+import '../providers/drive_provider.dart';
 import '../utils/mime_utils.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/expandable_fab.dart';
@@ -976,6 +977,42 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
     );
   }
 
+  Future<void> _openFileExternally(QuireFileModel file, String fileId) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final ext = extensionForMimeType(file.mimeType);
+    final filePath = '${dir.path}/pdf_cache/$fileId$ext';
+    final localFile = File(filePath);
+
+    if (!await localFile.exists()) {
+      if (file.driveId == null || file.driveId!.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('File not available offline. Please sync first.')),
+          );
+        }
+        return;
+      }
+      final driveService = ref.read(driveServiceProvider);
+      final bytes = await driveService.downloadFile(file.driveId!);
+      await localFile.writeAsBytes(bytes);
+    }
+
+    try {
+      final result = await OpenFilex.open(filePath, type: file.mimeType);
+      if (result != null && result.type == 'error' && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open file: ${result.message}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open file: $e')),
+        );
+      }
+    }
+  }
+
   Widget _buildFileTile(BuildContext context, String fileId, QuireFileModel file) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -998,23 +1035,7 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
           if (file.mimeType == 'application/pdf') {
             context.push('/pdf-viewer/$fileId');
           } else {
-            final dir = await getApplicationDocumentsDirectory();
-            final ext = extensionForMimeType(file.mimeType);
-            final filePath = '${dir.path}/pdf_cache/$fileId$ext';
-            try {
-              final result = await OpenFilex.open(filePath, type: file.mimeType);
-              if (result != null && result.type == 'error' && mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Could not open file: ${result.message}')),
-                );
-              }
-            } catch (e) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Could not open file: $e')),
-                );
-              }
-            }
+            await _openFileExternally(file, fileId);
           }
         }
       },
@@ -1109,23 +1130,7 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                             title: Text('Open externally', style: TextStyle(color: colorScheme.primary)),
                             onTap: () async {
                               Navigator.pop(ctx);
-                              final dir = await getApplicationDocumentsDirectory();
-                              final ext = extensionForMimeType(file.mimeType);
-                              final filePath = '${dir.path}/pdf_cache/$fileId$ext';
-                              try {
-                                final result = await OpenFilex.open(filePath, type: file.mimeType);
-                                if (result != null && result.type == 'error' && mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Could not open file: ${result.message}')),
-                                  );
-                                }
-                              } catch (e) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Could not open file: $e')),
-                                  );
-                                }
-                              }
+                              await _openFileExternally(file, fileId);
                             },
                           ),
                           ListTile(
@@ -1213,23 +1218,7 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
           if (file.mimeType == 'application/pdf') {
             context.push('/pdf-viewer/$fileId');
           } else {
-            final dir = await getApplicationDocumentsDirectory();
-            final ext = extensionForMimeType(file.mimeType);
-            final filePath = '${dir.path}/pdf_cache/$fileId$ext';
-            try {
-              final result = await OpenFilex.open(filePath, type: file.mimeType);
-              if (result != null && result.type == 'error' && mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Could not open file: ${result.message}')),
-                );
-              }
-            } catch (e) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Could not open file: $e')),
-                );
-              }
-            }
+            await _openFileExternally(file, fileId);
           }
         }
       },
@@ -1308,23 +1297,7 @@ class _DirectoryScreenState extends ConsumerState<DirectoryScreen> {
                                       title: Text('Open externally', style: TextStyle(color: colorScheme.primary)),
                                       onTap: () async {
                                         Navigator.pop(ctx);
-                                        final dir = await getApplicationDocumentsDirectory();
-                                        final ext = extensionForMimeType(file.mimeType);
-                                        final filePath = '${dir.path}/pdf_cache/$fileId$ext';
-                                        try {
-                                          final result = await OpenFilex.open(filePath, type: file.mimeType);
-                                          if (result != null && result.type == 'error' && mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text('Could not open file: ${result.message}')),
-                                            );
-                                          }
-                                        } catch (e) {
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text('Could not open file: $e')),
-                                            );
-                                          }
-                                        }
+                                        await _openFileExternally(file, fileId);
                                       },
                                     ),
                                     ListTile(
