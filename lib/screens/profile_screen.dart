@@ -104,8 +104,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _launchUrl(String url) async {
     final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
+    try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open link: $e')),
+        );
+      }
     }
   }
 
