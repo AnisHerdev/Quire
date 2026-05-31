@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
@@ -99,6 +100,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         }
       ),
     );
+  }
+
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override
@@ -347,8 +355,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 32),
+
+              // 4. About
+              Text('ABOUT', style: textTheme.labelLarge?.copyWith(color: colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colorScheme.surfaceVariant),
+                ),
+                child: Column(
+                  children: [
+                    _buildSettingsTile(
+                      context,
+                      icon: Icons.info_outline,
+                      title: 'About Quire',
+                      subtitle: 'Landing page and app info',
+                      onTap: () => _launchUrl('https://quire-1d241.web.app/'),
+                    ),
+                    const Divider(height: 1),
+                    _buildSettingsTile(
+                      context,
+                      icon: Icons.privacy_tip_outlined,
+                      title: 'Privacy Policy',
+                      subtitle: 'Read our privacy policy',
+                      onTap: () => _launchUrl('https://quire-1d241.web.app/privacy.html'),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 32),
               
-              // 4. Sign out and Version
+              // 5. Sign out and Version
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
