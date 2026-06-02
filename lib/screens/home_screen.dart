@@ -113,6 +113,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
   }
 
+  Future<void> _triggerManualSync() async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Syncing files...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+    await ref.read(databaseProvider.notifier).retrySync();
+  }
+
   void _showDeleteMultipleDialog() {
     showDialog(
       context: context,
@@ -721,7 +732,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
                 actions: [
-                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.sync),
+                    tooltip: 'Sync now',
+                    onPressed: _triggerManualSync,
+                  ),
+                  const SizedBox(width: 4),
                   CircleAvatar(
                     radius: 16,
                     backgroundImage: authState.user?.photoUrl.isNotEmpty == true
