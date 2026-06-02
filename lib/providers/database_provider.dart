@@ -84,6 +84,20 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
 
       await _performBackgroundSync();
 
+      var resetFiles = state.files;
+      bool hadReset = false;
+      for (final entry in state.files.entries) {
+        if (entry.value.syncStatus == 'pending' && (entry.value.syncRetries > 0 || entry.value.lastSyncError != null)) {
+          hadReset = true;
+          resetFiles = Map<String, QuireFileModel>.from(resetFiles);
+          resetFiles[entry.key] = entry.value.copyWith(syncRetries: 0, lastSyncError: null);
+        }
+      }
+      if (hadReset) {
+        debugPrint('[Sync] init: reset syncRetries for previously-failed pending files');
+        state = state.copyWith(files: resetFiles);
+      }
+
       final pendingCount = state.files.values.where((f) => f.syncStatus == 'pending').length;
       if (pendingCount > 0) {
         debugPrint('[Sync] init: $pendingCount pending files, starting sync');
