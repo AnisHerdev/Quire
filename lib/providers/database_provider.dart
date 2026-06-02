@@ -540,23 +540,28 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
   }
 
   Future<void> retrySync() async {
-    bool hadReset = false;
-    final updatedFiles = Map<String, QuireFileModel>.from(state.files);
-    for (final entry in state.files.entries) {
-      if (entry.value.syncStatus == 'pending' &&
-          (entry.value.syncRetries > 0 || entry.value.lastSyncError != null)) {
-        hadReset = true;
-        updatedFiles[entry.key] = entry.value.copyWith(
-          syncRetries: 0,
-          lastSyncError: null,
-        );
+    ref.read(syncInProgressProvider.notifier).start();
+    try {
+      bool hadReset = false;
+      final updatedFiles = Map<String, QuireFileModel>.from(state.files);
+      for (final entry in state.files.entries) {
+        if (entry.value.syncStatus == 'pending' &&
+            (entry.value.syncRetries > 0 || entry.value.lastSyncError != null)) {
+          hadReset = true;
+          updatedFiles[entry.key] = entry.value.copyWith(
+            syncRetries: 0,
+            lastSyncError: null,
+          );
+        }
       }
+      if (hadReset) {
+        debugPrint('[Sync] retrySync: reset retry counts for previously-failed pending files');
+        state = state.copyWith(files: updatedFiles);
+      }
+      await _syncPendingFiles();
+    } finally {
+      ref.read(syncInProgressProvider.notifier).stop();
     }
-    if (hadReset) {
-      debugPrint('[Sync] retrySync: reset retry counts for previously-failed pending files');
-      state = state.copyWith(files: updatedFiles);
-    }
-    await _syncPendingFiles();
   }
 
   Future<void> _syncPendingFiles() async {
