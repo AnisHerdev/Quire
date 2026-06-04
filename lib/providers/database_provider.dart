@@ -63,16 +63,11 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     debugPrint('[Sync] init: loaded ${state.files.length} files, ${state.folders.length} folders');
 
     final authService = ref.read(authServiceProvider);
-    var googleAccount = authService.currentGoogleAccount;
-    if (googleAccount == null) {
-      debugPrint('[Sync] init: no current Google account, trying signInSilently');
-      googleAccount = await authService.signInSilently();
-    }
+    final driveService = ref.read(driveServiceProvider);
+    final authenticated = await authService.authenticateDriveService(driveService);
 
-    if (googleAccount != null) {
-      debugPrint('[Sync] init: Google account found, setting up DriveService');
-      final driveService = ref.read(driveServiceProvider);
-      driveService.setAccount(googleAccount);
+    if (authenticated) {
+      debugPrint('[Sync] init: authenticated, setting up DriveService');
 
       // Proactively create Quire root folder so new accounts see it immediately
       try {
@@ -247,17 +242,7 @@ class DatabaseNotifier extends Notifier<QuireDatabase> {
     if (driveService.isReady) return true;
 
     final authService = ref.read(authServiceProvider);
-    var googleAccount = authService.currentGoogleAccount;
-    if (googleAccount == null) {
-      googleAccount = await authService.signInSilently();
-    }
-
-    if (googleAccount != null) {
-      driveService.setAccount(googleAccount);
-      return true;
-    }
-
-    return false;
+    return authService.authenticateDriveService(driveService);
   }
 
   Future<void> processSharedFiles(

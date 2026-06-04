@@ -22,28 +22,38 @@ class _GoogleAuthClient extends http.BaseClient {
 
 class DriveService {
   GoogleSignInAccount? _account;
+  String? _accessToken;
   static const String databaseFileName = 'database.json';
 
   DriveService();
 
-  bool get isReady => _account != null;
+  bool get isReady => _account != null || _accessToken != null;
 
   void setAccount(GoogleSignInAccount? account) {
     _account = account;
+    _accessToken = null;
+  }
+
+  void setAccessToken(String token) {
+    _accessToken = token;
+    _account = null;
   }
 
   Future<http.Client> _getAuthenticatedClient() async {
-    if (_account == null) {
+    String token;
+    if (_accessToken != null) {
+      token = _accessToken!;
+    } else if (_account != null) {
+      final auth = await _account!.authentication;
+      token = auth.accessToken!;
+    } else {
       throw Exception('User is not authenticated with Google.');
     }
-    
-    final auth = await _account!.authentication;
-    final token = auth.accessToken;
-    
-    if (token == null) {
+
+    if (token.isEmpty) {
       throw Exception('Failed to get Google access token.');
     }
-    
+
     return _GoogleAuthClient({
       'Authorization': 'Bearer $token',
       'X-Goog-AuthUser': '0',

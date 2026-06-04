@@ -1,6 +1,10 @@
+import 'dart:io' show Platform;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:googleapis_auth/googleapis_auth.dart' as auth;
+import 'package:url_launcher/url_launcher.dart';
+import '../services/drive_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -11,22 +15,92 @@ class AuthService {
       'https://www.googleapis.com/auth/drive.file',
       'https://www.googleapis.com/auth/drive.appdata'
     ],
-
   );
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   GoogleSignInAccount? _currentGoogleAccount;
   GoogleSignInAccount? get currentGoogleAccount => _currentGoogleAccount;
 
+  // Linux auth state
+  String? _linuxAccessToken;
+  String? _linuxRefreshToken;
+
+  String? get accessToken => _linuxAccessToken;
+  bool get isSignedIn => Platform.isLinux
+      ? _linuxAccessToken != null
+      : _currentGoogleAccount != null;
+
   User? get currentUser => _auth.currentUser;
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
+  static const _scopes = [
+    'email',
+    'profile',
+    'https://www.googleapis.com/auth/drive.file',
+    'https://www.googleapis.com/auth/drive.appdata',
+  ];
+
   Future<GoogleSignInAccount?> signInSilently() async {
+    if (Platform.isLinux) {
+      await _linuxSignInSilently();
+      return null;
+    }
     _currentGoogleAccount = await _googleSignIn.signInSilently();
     return _currentGoogleAccount;
   }
 
+  Future<void> _linuxSignInSilently() async {
+    final refreshToken = await _storage.read(key: 'linux_refresh_token');
+    if (refreshToken == null) return;
+
+    try {
+      final clientId = auth.ClientId(
+        const String.fromEnvironment('GOOGLE_OAUTH_CLIENT_ID_QUIRE'),
+        '',
+      );
+      final client = await auth.clientViaRefreshToken(
+        refreshToken,
+        clientId,
+        _scopes,
+      );
+      _linuxAccessToken = client.credentials.accessToken.token;
+      _linuxRefreshToken = client.credentials.refreshToken;
+      await _storage.write(key: 'linux_refresh_token', value: _linuxRefreshToken);
+      client.close();
+    } catch (e) {
+      _linuxAccessToken = null;
+      _linuxRefreshToken = null;
+      await _storage.delete(key: 'linux_refresh_token');
+    }
+  }
+
+  Future<bool> authenticateDriveService(DriveService driveService) async {
+    if (Platform.isLinux) {
+      if (_linuxAccessToken == null) {
+        await _linuxSignInSilently();
+      }
+      if (_linuxAccessToken != null) {
+        driveService.setAccessToken(_linuxAccessToken!);
+        return true;
+      }
+      return false;
+    }
+
+    if (_currentGoogleAccount == null) {
+      _currentGoogleAccount = await _googleSignIn.signInSilently();
+    }
+    if (_currentGoogleAccount != null) {
+      driveService.setAccount(_currentGoogleAccount);
+      return true;
+    }
+    return false;
+  }
+
   Future<UserCredential?> signInWithGoogle() async {
+    if (Platform.isLinux) {
+      return _linuxSignInWithGoogle();
+    }
+
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
@@ -66,11 +140,59 @@ class AuthService {
     }
   }
 
+  Future<UserCredential?> _linuxSignInWithGoogle() async {
+    try {
+      final clientId = auth.ClientId(
+        const String.fromEnvironment('GOOGLE_OAUTH_CLIENT_ID_QUIRE'),
+        '',
+      );
+
+      final client = await auth.clientViaUserConsent(
+        clientId,
+        _scopes,
+        (url) async {
+          await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+        },
+      );
+
+      _linuxAccessToken = client.credentials.accessToken.token;
+      _linuxRefreshToken = client.credentials.refreshToken;
+      await _storage.write(key: 'linux_refresh_token', value: _linuxRefreshToken);
+
+      UserCredential? userCredential;
+      if (client.credentials.idToken != null) {
+        final credential = GoogleAuthProvider.credential(
+          accessToken: _linuxAccessToken,
+          idToken: client.credentials.idToken,
+        );
+        userCredential = await _auth.signInWithCredential(credential);
+        final user = userCredential.user;
+        if (user != null) {
+          await _storage.write(key: 'email', value: user.email);
+          await _storage.write(key: 'displayName', value: user.displayName);
+          await _storage.write(key: 'photoUrl', value: user.photoURL);
+        }
+      }
+
+      client.close();
+      return userCredential;
+    } catch (e) {
+      print('Error signing in with Google on Linux: $e');
+      rethrow;
+    }
+  }
+
   Future<void> signOut() async {
+    if (Platform.isLinux) {
+      _linuxAccessToken = null;
+      _linuxRefreshToken = null;
+      await _storage.delete(key: 'linux_refresh_token');
+    } else {
+      await _googleSignIn.signOut();
+    }
     _currentGoogleAccount = null;
-    await _googleSignIn.signOut();
     await _auth.signOut();
-    
+
     await _storage.delete(key: 'email');
     await _storage.delete(key: 'displayName');
     await _storage.delete(key: 'photoUrl');

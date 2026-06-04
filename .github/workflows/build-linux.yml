@@ -27,7 +27,14 @@ jobs:
 
       - run: flutter pub get
 
-      - run: flutter build linux --release
+      - name: Build Linux
+        run: |
+          flutter build linux --release \
+            --dart-define=FIREBASE_API_KEY_QUIRE="${{ secrets.FIREBASE_API_KEY_QUIRE }}" \
+            --dart-define=FIREBASE_APP_ID_QUIRE="${{ secrets.FIREBASE_APP_ID_QUIRE }}" \
+            --dart-define=FIREBASE_SENDER_ID_QUIRE="${{ secrets.FIREBASE_SENDER_ID_QUIRE }}" \
+            --dart-define=FIREBASE_PROJECT_ID_QUIRE="${{ secrets.FIREBASE_PROJECT_ID_QUIRE }}" \
+            --dart-define=GOOGLE_OAUTH_CLIENT_ID_QUIRE="${{ secrets.GOOGLE_OAUTH_CLIENT_ID_QUIRE }}"
 
       - uses: actions/upload-artifact@v4
         with:
