@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:googleapis_auth/googleapis_auth.dart' as auth;
+import 'package:googleapis_auth/auth_io.dart' as auth;
+import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../services/drive_service.dart';
 
@@ -50,27 +52,35 @@ class AuthService {
   }
 
   Future<void> _linuxSignInSilently() async {
-    final refreshToken = await _storage.read(key: 'linux_refresh_token');
-    if (refreshToken == null) return;
+    final storedJson = await _storage.read(key: 'linux_credentials');
+    if (storedJson == null) return;
 
     try {
+      final credentials = auth.AccessCredentials.fromJson(
+        jsonDecode(storedJson) as Map<String, Object?>,
+      );
       final clientId = auth.ClientId(
         const String.fromEnvironment('GOOGLE_OAUTH_CLIENT_ID_QUIRE'),
         '',
       );
-      final client = await auth.clientViaRefreshToken(
-        refreshToken,
+      final httpClient = http.Client();
+      final refreshed = await auth.refreshCredentials(
         clientId,
-        _scopes,
+        credentials,
+        httpClient,
       );
-      _linuxAccessToken = client.credentials.accessToken.token;
-      _linuxRefreshToken = client.credentials.refreshToken;
-      await _storage.write(key: 'linux_refresh_token', value: _linuxRefreshToken);
-      client.close();
+      httpClient.close();
+
+      _linuxAccessToken = refreshed.accessToken.token;
+      _linuxRefreshToken = refreshed.refreshToken;
+      await _storage.write(
+        key: 'linux_credentials',
+        value: jsonEncode(refreshed.toJson()),
+      );
     } catch (e) {
       _linuxAccessToken = null;
       _linuxRefreshToken = null;
-      await _storage.delete(key: 'linux_refresh_token');
+      await _storage.delete(key: 'linux_credentials');
     }
   }
 
@@ -155,15 +165,19 @@ class AuthService {
         },
       );
 
-      _linuxAccessToken = client.credentials.accessToken.token;
-      _linuxRefreshToken = client.credentials.refreshToken;
-      await _storage.write(key: 'linux_refresh_token', value: _linuxRefreshToken);
+      final credentials = client.credentials;
+      _linuxAccessToken = credentials.accessToken.token;
+      _linuxRefreshToken = credentials.refreshToken;
+      await _storage.write(
+        key: 'linux_credentials',
+        value: jsonEncode(credentials.toJson()),
+      );
 
       UserCredential? userCredential;
-      if (client.credentials.idToken != null) {
+      if (credentials.idToken != null) {
         final credential = GoogleAuthProvider.credential(
           accessToken: _linuxAccessToken,
-          idToken: client.credentials.idToken,
+          idToken: credentials.idToken,
         );
         userCredential = await _auth.signInWithCredential(credential);
         final user = userCredential.user;
@@ -186,7 +200,7 @@ class AuthService {
     if (Platform.isLinux) {
       _linuxAccessToken = null;
       _linuxRefreshToken = null;
-      await _storage.delete(key: 'linux_refresh_token');
+      await _storage.delete(key: 'linux_credentials');
     } else {
       await _googleSignIn.signOut();
     }
