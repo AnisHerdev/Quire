@@ -30,7 +30,7 @@ sudo apt install libgtk-3-0 libsecret-1-0 liblzma5
 unzip linux-bundle.zip -d quire
 
 # 3. Run it
-./quire/bundle/quire
+./quire/quire
 ```
 
 The first sign-in will open your browser for Google OAuth. Subsequent launches
