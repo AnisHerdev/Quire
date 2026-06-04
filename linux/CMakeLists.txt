@@ -126,3 +126,25 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
+
+# Fix RPATH on bundled .so files so transitive dependencies
+# (e.g. libsyncfusion_pdfviewer_linux_plugin.so → libpdfium.so)
+# can be resolved regardless of linker RPATH propagation rules.
+# All .so files live in lib/ — adding $ORIGIN lets them find each other.
+find_program(PATCHELF patchelf)
+if(PATCHELF)
+  install(CODE "
+    file(GLOB_RECURSE SO_FILES
+      \"\${CMAKE_INSTALL_PREFIX}/lib/*.so\"
+    )
+    foreach(so_file \${SO_FILES})
+      execute_process(
+        COMMAND \"${PATCHELF}\" --add-rpath \"\$ORIGIN\" \"\${so_file}\"
+        COMMAND_ERROR_IS_FATAL ANY
+      )
+    endforeach()
+    message(STATUS \"patchelf: added \\\$ORIGIN RPATH to \${SO_FILES} .so files\")
+  " COMPONENT Runtime)
+else()
+  message(WARNING "patchelf not found — .so files may fail at runtime on some systems")
+endif()
