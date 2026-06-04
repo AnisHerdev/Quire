@@ -34,7 +34,8 @@ jobs:
             --dart-define=FIREBASE_APP_ID_QUIRE="${{ secrets.FIREBASE_APP_ID_QUIRE }}" \
             --dart-define=FIREBASE_SENDER_ID_QUIRE="${{ secrets.FIREBASE_SENDER_ID_QUIRE }}" \
             --dart-define=FIREBASE_PROJECT_ID_QUIRE="${{ secrets.FIREBASE_PROJECT_ID_QUIRE }}" \
-            --dart-define=GOOGLE_OAUTH_CLIENT_ID_QUIRE="${{ secrets.GOOGLE_OAUTH_CLIENT_ID_QUIRE }}"
+            --dart-define=GOOGLE_OAUTH_CLIENT_ID_QUIRE="${{ secrets.GOOGLE_OAUTH_CLIENT_ID_QUIRE }}" \
+            --dart-define=GOOGLE_OAUTH_CLIENT_SECRET_QUIRE="${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET_QUIRE }}"
 
       - uses: actions/upload-artifact@v4
         with:

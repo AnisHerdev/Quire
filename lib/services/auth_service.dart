@@ -63,7 +63,7 @@ class AuthService {
       );
       final clientId = auth.ClientId(
         const String.fromEnvironment('GOOGLE_OAUTH_CLIENT_ID_QUIRE'),
-        '',
+        const String.fromEnvironment('GOOGLE_OAUTH_CLIENT_SECRET_QUIRE'),
       );
       final httpClient = http.Client();
       final refreshed = await auth.refreshCredentials(
@@ -158,7 +158,7 @@ class AuthService {
     try {
       final clientId = auth.ClientId(
         const String.fromEnvironment('GOOGLE_OAUTH_CLIENT_ID_QUIRE'),
-        '',
+        const String.fromEnvironment('GOOGLE_OAUTH_CLIENT_SECRET_QUIRE'),
       );
 
       final client = await auth.clientViaUserConsent(
