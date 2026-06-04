@@ -71,7 +71,7 @@ class AuthService {
       );
       httpClient.close();
 
-      _linuxAccessToken = refreshed.accessToken.token;
+      _linuxAccessToken = refreshed.accessToken.data;
       _linuxRefreshToken = refreshed.refreshToken;
       await _storage.write(
         key: 'linux_credentials',
@@ -166,7 +166,7 @@ class AuthService {
       );
 
       final credentials = client.credentials;
-      _linuxAccessToken = credentials.accessToken.token;
+      _linuxAccessToken = credentials.accessToken.data;
       _linuxRefreshToken = credentials.refreshToken;
       await _storage.write(
         key: 'linux_credentials',
