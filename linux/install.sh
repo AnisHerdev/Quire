@@ -20,8 +20,8 @@ echo "Found quire executable at: $QUIRE_EXEC"
 
 # Icon
 ICON_SRC=""
-if [ -f "$BUNDLE_DIR/logo.png" ]; then
-  ICON_SRC="$BUNDLE_DIR/logo.png"
+if [ -f "$SCRIPT_DIR/logo.png" ]; then
+  ICON_SRC="$SCRIPT_DIR/logo.png"
 elif [ -f "$BUNDLE_DIR/assets/images/logo.png" ]; then
   ICON_SRC="$BUNDLE_DIR/assets/images/logo.png"
 elif [ -f "$SCRIPT_DIR/../assets/images/logo.png" ]; then
@@ -54,6 +54,12 @@ echo "Installed desktop entry to $DESKTOP_DST"
 if command -v update-desktop-database &>/dev/null; then
   update-desktop-database "$HOME/.local/share/applications/" || true
   echo "Desktop database updated."
+fi
+
+# Update icon cache
+if command -v gtk-update-icon-cache &>/dev/null; then
+  gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor/" || true
+  echo "Icon cache updated."
 fi
 
 echo ""
