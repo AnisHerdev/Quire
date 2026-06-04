@@ -42,8 +42,8 @@ To add Quire to your application menu with an icon:
 
 ```bash
 cd quire
-chmod +x linux/install.sh
-./linux/install.sh
+chmod +x install.sh
+./install.sh
 ```
 
 This will:

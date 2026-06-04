@@ -37,6 +37,13 @@ jobs:
             --dart-define=GOOGLE_OAUTH_CLIENT_ID_QUIRE="${{ secrets.GOOGLE_OAUTH_CLIENT_ID_QUIRE }}" \
             --dart-define=GOOGLE_OAUTH_CLIENT_SECRET_QUIRE="${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET_QUIRE }}"
 
+      - name: Bundle install scripts and icon
+        run: |
+          BUNDLE="build/linux/x64/release/bundle"
+          cp linux/install.sh "$BUNDLE/"
+          cp linux/quire.desktop "$BUNDLE/"
+          cp assets/images/logo.png "$BUNDLE/"
+
       - uses: actions/upload-artifact@v4
         with:
           name: linux-bundle

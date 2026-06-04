@@ -20,15 +20,16 @@ echo "Found quire executable at: $QUIRE_EXEC"
 
 # Icon
 ICON_SRC=""
-if [ -f "$BUNDLE_DIR/assets/images/logo.png" ]; then
+if [ -f "$BUNDLE_DIR/logo.png" ]; then
+  ICON_SRC="$BUNDLE_DIR/logo.png"
+elif [ -f "$BUNDLE_DIR/assets/images/logo.png" ]; then
   ICON_SRC="$BUNDLE_DIR/assets/images/logo.png"
 elif [ -f "$SCRIPT_DIR/../assets/images/logo.png" ]; then
   ICON_SRC="$(cd "$SCRIPT_DIR/.." && pwd)/assets/images/logo.png"
 elif [ -f "$SCRIPT_DIR/quire.png" ]; then
   ICON_SRC="$SCRIPT_DIR/quire.png"
 else
-  echo "Warning: icon not found at assets/images/logo.png or linux/quire.png"
-  echo "  The app will appear in the menu but without an icon."
+  echo "Warning: icon not found — the app will appear in the menu without an icon."
 fi
 
 ICON_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
