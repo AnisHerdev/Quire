@@ -44,13 +44,33 @@ class AuthService {
     'https://www.googleapis.com/auth/drive.appdata',
   ];
 
-  Future<GoogleSignInAccount?> signInSilently() async {
+  Future<UserModel?> signInSilently() async {
     if (Platform.isLinux) {
       await _linuxSignInSilently();
+      if (_linuxAccessToken != null) {
+        final uid = await _storage.read(key: 'uid') ?? '';
+        final email = await _storage.read(key: 'email') ?? '';
+        final displayName = await _storage.read(key: 'displayName') ?? 'Unknown User';
+        final photoUrl = await _storage.read(key: 'photoUrl') ?? '';
+        return UserModel(
+          uid: uid,
+          email: email,
+          displayName: displayName,
+          photoUrl: photoUrl,
+        );
+      }
       return null;
     }
     _currentGoogleAccount = await _googleSignIn.signInSilently();
-    return _currentGoogleAccount;
+    if (_currentGoogleAccount != null) {
+      return UserModel(
+        uid: _currentGoogleAccount!.id,
+        email: _currentGoogleAccount!.email,
+        displayName: _currentGoogleAccount!.displayName ?? 'Unknown User',
+        photoUrl: _currentGoogleAccount!.photoUrl ?? '',
+      );
+    }
+    return null;
   }
 
   Future<void> _linuxSignInSilently() async {
@@ -79,6 +99,14 @@ class AuthService {
         key: 'linux_credentials',
         value: jsonEncode(refreshed.toJson()),
       );
+
+      if (refreshed.idToken != null) {
+        final claims = _decodeIdToken(refreshed.idToken!);
+        await _storage.write(key: 'uid', value: claims['sub'] as String? ?? '');
+        await _storage.write(key: 'email', value: claims['email'] as String? ?? '');
+        await _storage.write(key: 'displayName', value: claims['name'] as String? ?? 'Unknown User');
+        await _storage.write(key: 'photoUrl', value: claims['picture'] as String? ?? '');
+      }
     } catch (e) {
       _linuxAccessToken = null;
       _linuxRefreshToken = null;
@@ -192,6 +220,7 @@ class AuthService {
           photoUrl: photoUrl,
         );
 
+        await _storage.write(key: 'uid', value: uid);
         await _storage.write(key: 'email', value: email);
         await _storage.write(key: 'displayName', value: displayName);
         await _storage.write(key: 'photoUrl', value: photoUrl);

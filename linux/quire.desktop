@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Quire
+Comment=Your notes, everywhere
+Exec=EXEC_PATH_PLACEHOLDER
+Icon=quire
+Terminal=false
+Type=Application
+Categories=Office;Education;
+StartupNotify=true

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
@@ -38,6 +39,11 @@ class AuthNotifier extends Notifier<AuthState> {
       _subscription?.cancel();
     });
 
+    if (Platform.isLinux) {
+      _initLinuxAuth();
+      return const AuthState(isLoading: true, user: null);
+    }
+
     // Check initial current user synchronously
     final firebaseUser = _authService.currentUser;
     if (firebaseUser != null) {
@@ -51,6 +57,15 @@ class AuthNotifier extends Notifier<AuthState> {
       isLoading: false,
       user: null,
     );
+  }
+
+  Future<void> _initLinuxAuth() async {
+    try {
+      final userModel = await _authService.signInSilently();
+      state = AuthState(isLoading: false, user: userModel);
+    } catch (e) {
+      state = const AuthState(isLoading: false, user: null);
+    }
   }
 
   Future<void> signInWithGoogle() async {
