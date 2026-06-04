@@ -27,7 +27,6 @@ class AuthService {
   // Linux auth state
   String? _linuxAccessToken;
   String? _linuxRefreshToken;
-  UserModel? _linuxUser;
 
   String? get accessToken => _linuxAccessToken;
   bool get isSignedIn => Platform.isLinux
@@ -192,7 +191,6 @@ class AuthService {
           displayName: displayName,
           photoUrl: photoUrl,
         );
-        _linuxUser = userModel;
 
         await _storage.write(key: 'email', value: email);
         await _storage.write(key: 'displayName', value: displayName);
@@ -233,7 +231,6 @@ class AuthService {
     if (Platform.isLinux) {
       _linuxAccessToken = null;
       _linuxRefreshToken = null;
-      _linuxUser = null;
       await _storage.delete(key: 'linux_credentials');
     } else {
       await _googleSignIn.signOut();
