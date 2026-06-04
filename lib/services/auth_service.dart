@@ -6,10 +6,11 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:googleapis_auth/auth_io.dart' as auth;
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import '../models/user_model.dart';
 import '../services/drive_service.dart';
 
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  FirebaseAuth get _auth => FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: [
       'email', 
@@ -26,14 +27,16 @@ class AuthService {
   // Linux auth state
   String? _linuxAccessToken;
   String? _linuxRefreshToken;
+  UserModel? _linuxUser;
 
   String? get accessToken => _linuxAccessToken;
   bool get isSignedIn => Platform.isLinux
       ? _linuxAccessToken != null
       : _currentGoogleAccount != null;
 
-  User? get currentUser => _auth.currentUser;
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  User? get currentUser => Platform.isLinux ? null : _auth.currentUser;
+  Stream<User?> get authStateChanges =>
+      Platform.isLinux ? const Stream.empty() : _auth.authStateChanges();
 
   static const _scopes = [
     'email',
@@ -106,7 +109,7 @@ class AuthService {
     return false;
   }
 
-  Future<UserCredential?> signInWithGoogle() async {
+  Future<UserModel?> signInWithGoogle() async {
     if (Platform.isLinux) {
       return _linuxSignInWithGoogle();
     }
@@ -138,19 +141,21 @@ class AuthService {
       final user = userCredential.user;
 
       if (user != null) {
+        final userModel = UserModel.fromFirebaseUser(user);
         await _storage.write(key: 'email', value: user.email);
         await _storage.write(key: 'displayName', value: user.displayName);
         await _storage.write(key: 'photoUrl', value: user.photoURL);
+        return userModel;
       }
 
-      return userCredential;
+      return null;
     } catch (e) {
       print('Error signing in with Google: $e');
       rethrow;
     }
   }
 
-  Future<UserCredential?> _linuxSignInWithGoogle() async {
+  Future<UserModel?> _linuxSignInWithGoogle() async {
     try {
       final clientId = auth.ClientId(
         const String.fromEnvironment('GOOGLE_OAUTH_CLIENT_ID_QUIRE'),
@@ -173,39 +178,68 @@ class AuthService {
         value: jsonEncode(credentials.toJson()),
       );
 
-      UserCredential? userCredential;
+      UserModel? userModel;
       if (credentials.idToken != null) {
-        final credential = GoogleAuthProvider.credential(
-          accessToken: _linuxAccessToken,
-          idToken: credentials.idToken,
+        final claims = _decodeIdToken(credentials.idToken!);
+        final uid = claims['sub'] as String? ?? '';
+        final email = claims['email'] as String? ?? '';
+        final displayName = claims['name'] as String? ?? 'Unknown User';
+        final photoUrl = claims['picture'] as String? ?? '';
+
+        userModel = UserModel(
+          uid: uid,
+          email: email,
+          displayName: displayName,
+          photoUrl: photoUrl,
         );
-        userCredential = await _auth.signInWithCredential(credential);
-        final user = userCredential.user;
-        if (user != null) {
-          await _storage.write(key: 'email', value: user.email);
-          await _storage.write(key: 'displayName', value: user.displayName);
-          await _storage.write(key: 'photoUrl', value: user.photoURL);
-        }
+        _linuxUser = userModel;
+
+        await _storage.write(key: 'email', value: email);
+        await _storage.write(key: 'displayName', value: displayName);
+        await _storage.write(key: 'photoUrl', value: photoUrl);
       }
 
       client.close();
-      return userCredential;
+      return userModel;
     } catch (e) {
       print('Error signing in with Google on Linux: $e');
       rethrow;
     }
   }
 
+  Map<String, dynamic> _decodeIdToken(String idToken) {
+    final parts = idToken.split('.');
+    if (parts.length != 3) {
+      throw FormatException('Invalid JWT token');
+    }
+    var payload = parts[1].replaceAll('-', '+').replaceAll('_', '/');
+    switch (payload.length % 4) {
+      case 0:
+        break;
+      case 2:
+        payload += '==';
+        break;
+      case 3:
+        payload += '=';
+        break;
+      default:
+        throw FormatException('Invalid base64url string');
+    }
+    final decoded = base64.decode(payload);
+    return jsonDecode(utf8.decode(decoded)) as Map<String, dynamic>;
+  }
+
   Future<void> signOut() async {
     if (Platform.isLinux) {
       _linuxAccessToken = null;
       _linuxRefreshToken = null;
+      _linuxUser = null;
       await _storage.delete(key: 'linux_credentials');
     } else {
       await _googleSignIn.signOut();
+      await _auth.signOut();
     }
     _currentGoogleAccount = null;
-    await _auth.signOut();
 
     await _storage.delete(key: 'email');
     await _storage.delete(key: 'displayName');

@@ -56,12 +56,13 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> signInWithGoogle() async {
     state = AuthState(isLoading: true, user: state.user);
     try {
-      final credential = await _authService.signInWithGoogle();
-      if (credential == null) {
+      final userModel = await _authService.signInWithGoogle();
+      if (userModel == null) {
         // Canceled
         state = const AuthState(isLoading: false, user: null);
+      } else {
+        state = AuthState(isLoading: false, user: userModel);
       }
-      // If success, the authStateChanges stream will update the state
     } catch (e) {
       state = const AuthState(isLoading: false, user: null);
       rethrow;
@@ -71,7 +72,7 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> signOut() async {
     state = AuthState(isLoading: true, user: state.user);
     await _authService.signOut();
-    // authStateChanges will update state to unauthenticated
+    state = const AuthState(isLoading: false, user: null);
   }
 }
 
