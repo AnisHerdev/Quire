@@ -32,7 +32,7 @@ cp -r "$BUNDLE_DIR/data" "$SNAPDIR/"
 # 2.  Snap metadata  (kept in sync with snap/snapcraft.yaml)
 # ---------------------------------------------------------------------------
 cp snap/gui/quire.desktop "$SNAPDIR/meta/gui/"
-cp snap/gui/icon.png     "$SNAPDIR/meta/gui/quire.png"
+cp assets/images/logo.png "$SNAPDIR/meta/gui/quire.png"
 
 cat > "$SNAPDIR/meta/snap.yaml" << SNAPEOF
 name: $SNAP_NAME
@@ -120,6 +120,13 @@ for lib in libEGL.so.1 libEGL_mesa.so.0; do
         cp -L "$path" "$SNAPDIR/lib/$lib"
         echo "    + $lib (dlopen)"
     fi
+done
+
+# Re-scan all .so files — dlopen'd libraries may have their own
+# DT_NEEDED entries (e.g. libEGL.so.1 needs libGLdispatch.so.0)
+echo "  scanning transitive dependencies ..."
+for so in "$SNAPDIR"/lib/*.so*; do
+    [ -f "$so" ] && collect_deps "$so"
 done
 
 # ---------------------------------------------------------------------------
