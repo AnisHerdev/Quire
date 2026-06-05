@@ -64,7 +64,7 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev patchelf squashfs-tools
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev patchelf squashfs-tools libegl1 libegl-mesa0 libcanberra-gtk3-module
 
       - run: flutter pub get
 

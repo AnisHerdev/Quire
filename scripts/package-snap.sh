@@ -109,14 +109,18 @@ for so in "$SNAPDIR"/lib/*.so.*; do
     [ -f "$so" ] && collect_deps "$so"
 done
 
-# <<DLOPEN>>  If the snap fails at runtime with "cannot open shared object
-#             file", identify the missing library (e.g. via LD_DEBUG or
-#             strace) and add an explicit copy below.  Example:
-#
-#   missing_lib=/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/...
-#   if [ -f "$missing_lib" ]; then
-#       cp -L "$missing_lib" "$SNAPDIR/lib/"
-#   fi
+# <<DLOPEN>>  Libraries loaded via dlopen() that ldd does not see.
+#             Identify missing ones via strace -e openat, then add below.
+# ---------------------------------------------------------------------------
+echo "  copying dlopen() dependencies ..."
+
+for lib in libEGL.so.1 libEGL_mesa.so.0; do
+    path="/usr/lib/x86_64-linux-gnu/$lib"
+    if [ -f "$path" ]; then
+        cp -L "$path" "$SNAPDIR/lib/$lib"
+        echo "    + $lib (dlopen)"
+    fi
+done
 
 # ---------------------------------------------------------------------------
 # 4.  Fix RPATH so bundled .so files can find each other
