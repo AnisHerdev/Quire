@@ -140,7 +140,14 @@ done
 patchelf --set-rpath '$ORIGIN/lib' "$SNAPDIR/quire" 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
-# 5.  Pack into .snap (SquashFS)
+# 5.  Fix permissions — snapd requires world-readable root
+# ---------------------------------------------------------------------------
+echo "  fixing permissions ..."
+chmod 755 "$SNAPDIR"
+chmod -R a+rX "$SNAPDIR"
+
+# ---------------------------------------------------------------------------
+# 6.  Pack into .snap (SquashFS)
 # ---------------------------------------------------------------------------
 echo "  packing snap ..."
 mksquashfs "$SNAPDIR" "$OUTPUT" -comp xz -noappend -all-root 1>/dev/null
