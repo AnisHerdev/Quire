@@ -61,27 +61,25 @@ jobs:
 
       - run: flutter config --enable-linux-desktop
 
-      - name: Install Linux dependencies
+      - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev patchelf
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev patchelf squashfs-tools
 
-      - name: Install snapcraft
-        run: sudo snap install snapcraft --classic
+      - run: flutter pub get
 
-      - name: Build snap
-        run: snapcraft --destructive-mode
-        env:
-          FIREBASE_API_KEY_QUIRE: ${{ secrets.FIREBASE_API_KEY_QUIRE }}
-          FIREBASE_APP_ID_QUIRE: ${{ secrets.FIREBASE_APP_ID_QUIRE }}
-          FIREBASE_SENDER_ID_QUIRE: ${{ secrets.FIREBASE_SENDER_ID_QUIRE }}
-          FIREBASE_PROJECT_ID_QUIRE: ${{ secrets.FIREBASE_PROJECT_ID_QUIRE }}
-          GOOGLE_OAUTH_CLIENT_ID_QUIRE: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID_QUIRE }}
-          GOOGLE_OAUTH_CLIENT_SECRET_QUIRE: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET_QUIRE }}
-
-      - name: Rename snap artifact
+      - name: Build Linux release
         run: |
-          mv *.snap quire_1.0.0_amd64.snap
+          flutter build linux --release \
+            --dart-define=FIREBASE_API_KEY_QUIRE="${{ secrets.FIREBASE_API_KEY_QUIRE }}" \
+            --dart-define=FIREBASE_APP_ID_QUIRE="${{ secrets.FIREBASE_APP_ID_QUIRE }}" \
+            --dart-define=FIREBASE_SENDER_ID_QUIRE="${{ secrets.FIREBASE_SENDER_ID_QUIRE }}" \
+            --dart-define=FIREBASE_PROJECT_ID_QUIRE="${{ secrets.FIREBASE_PROJECT_ID_QUIRE }}" \
+            --dart-define=GOOGLE_OAUTH_CLIENT_ID_QUIRE="${{ secrets.GOOGLE_OAUTH_CLIENT_ID_QUIRE }}" \
+            --dart-define=GOOGLE_OAUTH_CLIENT_SECRET_QUIRE="${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET_QUIRE }}"
+
+      - name: Package snap from Flutter bundle
+        run: bash scripts/package-snap.sh
 
       - uses: actions/upload-artifact@v4
         with:
