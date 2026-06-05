@@ -16,6 +16,7 @@ grade: stable
 apps:
   quire:
     command: quire
+    extensions: [gnome]
     plugs:
       - network
       - password-manager-service
@@ -49,6 +50,7 @@ parts:
       - libgtk-3-0
       - liblzma5
       - libsecret-1-0
+      - libcanberra-gtk3-module
     override-build: |
       flutter build linux --release \
         --dart-define=FIREBASE_API_KEY_QUIRE="${FIREBASE_API_KEY_QUIRE}" \
