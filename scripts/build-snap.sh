@@ -107,14 +107,19 @@ sg lxd -c "lxc exec $CONTAINER -- bash -c '
   echo cleanup_done
 '"
 
+# Read version from snapcraft.yaml to produce a versioned snap filename
+VERSION=$(grep '^version:' snap/snapcraft.yaml | head -1 | sed 's/version: *"\(.*\)"/\1/')
+SNAP_FILE="quire_${VERSION}_amd64.snap"
+
 # The Flutter binary is already built in /build/linux/x64/release/bundle (via bind-mount).
 # snapcraft.yaml uses plugin: nil and just copies the pre-built binary, so the host's
 # GLIBC doesn't matter — the binary itself was built in Ubuntu 22.04 (GLIBC 2.35, matching core22).
-snapcraft pack --destructive-mode --output quire.snap
+snapcraft pack --destructive-mode --output "$SNAP_FILE"
 
 echo ""
 echo "=== Done! ==="
-ls -la quire.snap 2>/dev/null
+ls -la "$SNAP_FILE" 2>/dev/null
 echo ""
-echo "Install with: sudo snap install --dangerous quire.snap"
+echo "Install with: sudo snap install --dangerous $SNAP_FILE"
 echo "Run with:     snap run quire"
+echo "Upload with:  snapcraft upload --release=stable $SNAP_FILE"

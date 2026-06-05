@@ -57,12 +57,18 @@ sudo snap remove quire
 # Login (first time only — opens a browser to authorize)
 snapcraft login
 
-# Upload (use edge first, then promote to stable after manual review)
+# Upload to edge first (recommended for new snaps — skips manual review)
 snapcraft upload quire_<version>_amd64.snap --release=edge
 
-# After testing on edge, promote to stable
+# Test the edge channel locally:
+sudo snap install quire --channel=edge
+snap run quire
+
+# After verifying edge works, promote to stable
 snapcraft release quire <revision> stable
 ```
+
+> **Why edge first?** Snapcraft does an automatic scan + (sometimes) manual review on the first upload to `stable`. The first upload to `edge` is reviewed automatically only, so you can verify the snap works on real users before going to `stable`. After the first successful stable review, subsequent uploads to `stable` are usually automatic.
 
 > **Note on duplicate uploads:** Snapcraft rejects uploads of an identical binary (`binary_sha3_384` collision). If you re-upload the same content, bump the version in `snap/snapcraft.yaml` and `pubspec.yaml` before rebuilding.
 
