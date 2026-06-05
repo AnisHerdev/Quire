@@ -51,7 +51,7 @@ apps:
   quire:
     command: quire
     environment:
-      EGL_VENDOR_LIBRARY_DIRS: $SNAP/usr/share/glvnd/egl_vendor.d
+      EGL_VENDOR_LIBRARY_DIRS: \$SNAP/usr/share/glvnd/egl_vendor.d
     plugs:
       - network
       - password-manager-service
