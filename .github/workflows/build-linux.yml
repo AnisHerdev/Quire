@@ -48,3 +48,49 @@ jobs:
         with:
           name: linux-bundle
           path: build/linux/x64/release/bundle/
+
+  build-snap:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - run: flutter config --enable-linux-desktop
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev patchelf
+
+      - name: Install snapcraft
+        run: |
+          sudo snap install snapcraft --classic
+          sudo snap install lxd
+          sudo lxd init --auto
+
+      - run: flutter pub get
+
+      - name: Build snap
+        run: |
+          flutter pub get
+          snapcraft --destructive-mode
+        env:
+          FIREBASE_API_KEY_QUIRE: ${{ secrets.FIREBASE_API_KEY_QUIRE }}
+          FIREBASE_APP_ID_QUIRE: ${{ secrets.FIREBASE_APP_ID_QUIRE }}
+          FIREBASE_SENDER_ID_QUIRE: ${{ secrets.FIREBASE_SENDER_ID_QUIRE }}
+          FIREBASE_PROJECT_ID_QUIRE: ${{ secrets.FIREBASE_PROJECT_ID_QUIRE }}
+          GOOGLE_OAUTH_CLIENT_ID_QUIRE: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID_QUIRE }}
+          GOOGLE_OAUTH_CLIENT_SECRET_QUIRE: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET_QUIRE }}
+
+      - name: Rename snap artifact
+        run: |
+          mv *.snap quire_1.0.0_amd64.snap
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quire-snap
+          path: quire_1.0.0_amd64.snap

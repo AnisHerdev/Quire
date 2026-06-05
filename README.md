@@ -1,19 +1,8 @@
-# quire
+# Quire
 
-A new Flutter project.
+Your notes, everywhere. A note organization and search app for students.
 
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+[![snap store](https://img.shields.io/badge/Snap-Store-82BFA1?logo=snapcraft&logoColor=white)](https://snapcraft.io/quire)
 
 ## Linux Build
 
@@ -56,3 +45,14 @@ to your dock/taskbar for one-click launch.
 
 If you move the bundle to a different location, re-run `install.sh` to
 update the path in the desktop entry.
+
+### Snap Store
+
+Quire is also available as a snap on any Linux distribution with snap support:
+
+```bash
+sudo snap install quire
+```
+
+After installing, launch Quire from your application menu or run `quire`
+in a terminal. The first sign-in will open your browser for Google OAuth.

@@ -1,0 +1,43 @@
+name: quire
+title: Quire
+version: "1.0.0"
+summary: Your notes, everywhere — connected to Google Drive
+description: |
+  Quire connects to your Google Drive and indexes all your academic notes —
+  PDFs, PowerPoints, Word documents, and text files. Search everything
+  instantly with full-text BM25 search. Your files stay in your own Google
+  Drive; nothing is uploaded to a server. Perfect for students who want to
+  find their notes fast.
+
+base: core22
+confinement: strict
+grade: stable
+
+apps:
+  quire:
+    command: quire
+    extensions: [gnome]
+    plugs:
+      - network
+      - password-manager-service
+
+slots:
+  dbus-quire:
+    interface: dbus
+    bus: session
+    name: com.quire.app
+
+parts:
+  quire:
+    source: .
+    plugin: flutter
+    flutter-target: lib/main.dart
+    override-build: |
+      flutter build linux --release \
+        --dart-define=FIREBASE_API_KEY_QUIRE="${FIREBASE_API_KEY_QUIRE}" \
+        --dart-define=FIREBASE_APP_ID_QUIRE="${FIREBASE_APP_ID_QUIRE}" \
+        --dart-define=FIREBASE_SENDER_ID_QUIRE="${FIREBASE_SENDER_ID_QUIRE}" \
+        --dart-define=FIREBASE_PROJECT_ID_QUIRE="${FIREBASE_PROJECT_ID_QUIRE}" \
+        --dart-define=GOOGLE_OAUTH_CLIENT_ID_QUIRE="${GOOGLE_OAUTH_CLIENT_ID_QUIRE}" \
+        --dart-define=GOOGLE_OAUTH_CLIENT_SECRET_QUIRE="${GOOGLE_OAUTH_CLIENT_SECRET_QUIRE}"
+      snapcraftctl stage
