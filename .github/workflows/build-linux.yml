@@ -67,17 +67,10 @@ jobs:
           sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev patchelf
 
       - name: Install snapcraft
-        run: |
-          sudo snap install snapcraft --classic
-          sudo snap install lxd
-          sudo lxd init --auto
-
-      - run: flutter pub get
+        run: sudo snap install snapcraft --classic
 
       - name: Build snap
-        run: |
-          flutter pub get
-          snapcraft --destructive-mode
+        run: snapcraft --destructive-mode
         env:
           FIREBASE_API_KEY_QUIRE: ${{ secrets.FIREBASE_API_KEY_QUIRE }}
           FIREBASE_APP_ID_QUIRE: ${{ secrets.FIREBASE_APP_ID_QUIRE }}

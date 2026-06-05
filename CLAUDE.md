@@ -27,8 +27,6 @@ The Linux build requires: `clang cmake ninja-build pkg-config libgtk-3-dev liblz
 ### Snap build (requires Linux or GitHub Actions)
 ```bash
 sudo snap install snapcraft --classic
-sudo snap install lxd
-sudo lxd init --auto
 snapcraft --destructive-mode
 ```
 The snap recipe is in `snap/snapcraft.yaml`. All six dart-define values must be set as environment variables (GitHub Actions job `build-snap` handles this automatically).
