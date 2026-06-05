@@ -52,3 +52,15 @@ context.md
 OFFICE-HOURS.md
 
 .claude/
+
+# Environment variables (contains secrets)
+.env
+
+# Snapcraft build artifacts
+parts/
+prime/
+stage/
+*.snap
+
+# Temporary debug / scratch files
+temp.txt

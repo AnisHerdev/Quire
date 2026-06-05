@@ -24,12 +24,20 @@ flutter build linux --release            # Release build
 ```
 The Linux build requires: `clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev patchelf`
 
-### Snap build (requires Linux or GitHub Actions)
+### Snap build (runs in core22 LXD container — no Docker needed)
 ```bash
+# One-time setup
 sudo snap install snapcraft --classic
-snapcraft --destructive-mode
+sudo snap install lxd
+sudo lxd init --auto
+sudo usermod -a -G lxd $USER
+# Log out and back in (or: newgrp lxd)
+
+# Every build
+bash scripts/build-snap.sh
+# Equivalent: source .env && export dart-define vars && snapcraft --use-lxd
 ```
-The snap recipe is in `snap/snapcraft.yaml`. All six dart-define values must be set as environment variables (GitHub Actions job `build-snap` handles this automatically).
+The snap recipe is in `snap/snapcraft.yaml`. Uses `extensions: [gnome]` which generates Mesa/EGL command chains. All six dart-define values must be set as environment variables.
 
 ### Linux build with dart-defines (required for OAuth)
 ```bash
@@ -102,5 +110,5 @@ These are stored as GitHub Secrets and injected during CI builds. For local deve
 
 ## Key Conventions
 - All file paths use forward slashes (project is developed cross-platform, shell is bash)
-- Snap Store packaging is in `snap/` — see `snap/snapcraft.yaml` for the build recipe and `snap/gui/` for the desktop entry and icon. Build via GitHub Actions (`build-snap` job) or locally with `snapcraft --destructive-mode`
+- Snap Store packaging is in `snap/` — see `snap/snapcraft.yaml` for the build recipe and `snap/gui/` for the desktop entry and icon. Build locally with `bash scripts/build-snap.sh` (uses `snapcraft --use-lxd` with core22 LXD container).
 - `APPLICATION_ID` in `linux/CMakeLists.txt` is `com.quire.app`
