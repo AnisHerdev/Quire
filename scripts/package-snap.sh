@@ -50,6 +50,8 @@ architectures:
 apps:
   quire:
     command: quire
+    environment:
+      EGL_VENDOR_LIBRARY_DIRS: $SNAP/usr/share/glvnd/egl_vendor.d
     plugs:
       - network
       - password-manager-service
@@ -114,11 +116,19 @@ done
 # ---------------------------------------------------------------------------
 echo "  copying dlopen() dependencies ..."
 
-for lib in libEGL.so.1 libEGL_mesa.so.0; do
+for lib in libEGL.so.1 libEGL_mesa.so.0 libgbm.so.1 libGL.so.1 libGLX.so.0 libglapi.so.0; do
     path="/usr/lib/x86_64-linux-gnu/$lib"
     if [ -f "$path" ]; then
         cp -L "$path" "$SNAPDIR/lib/$lib"
         echo "    + $lib (dlopen)"
+    fi
+done
+
+# EGL vendor config — tells libglvnd dispatch where to find Mesa's EGL
+for dir in /usr/share/glvnd/egl_vendor.d /etc/glvnd/egl_vendor.d; do
+    if [ -d "$dir" ]; then
+        mkdir -p "$SNAPDIR/usr/share/glvnd/egl_vendor.d"
+        cp -L "$dir"/*.json "$SNAPDIR/usr/share/glvnd/egl_vendor.d/" 2>/dev/null || true
     fi
 done
 
