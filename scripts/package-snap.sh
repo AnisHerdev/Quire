@@ -44,6 +44,9 @@ description: |
   instantly with full-text BM25 search.
 base: core22
 confinement: strict
+grade: stable
+architectures:
+  - amd64
 apps:
   quire:
     command: quire
