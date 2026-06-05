@@ -32,7 +32,7 @@ cp -r "$BUNDLE_DIR/data" "$SNAPDIR/"
 # 2.  Snap metadata  (kept in sync with snap/snapcraft.yaml)
 # ---------------------------------------------------------------------------
 cp snap/gui/quire.desktop "$SNAPDIR/meta/gui/"
-cp snap/gui/icon.png     "$SNAPDIR/meta/gui/"
+cp snap/gui/icon.png     "$SNAPDIR/meta/gui/quire.png"
 
 cat > "$SNAPDIR/meta/snap.yaml" << SNAPEOF
 name: $SNAP_NAME

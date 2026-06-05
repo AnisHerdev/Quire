@@ -2,7 +2,7 @@
 Name=Quire
 Comment=Your notes, everywhere — connected to Google Drive
 Exec=quire
-Icon=${SNAP}/meta/gui/icon.png
+Icon=quire
 Terminal=false
 Type=Application
 Categories=Office;Education;
