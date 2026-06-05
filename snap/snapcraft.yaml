@@ -1,6 +1,6 @@
 name: quire
 title: Quire
-version: "1.0.0"
+version: "1.0.0+2"
 summary: Your notes, everywhere — connected to Google Drive
 description: |
   Quire connects to your Google Drive and indexes all your academic notes —
@@ -8,6 +8,12 @@ description: |
   instantly with full-text BM25 search. Your files stay in your own Google
   Drive; nothing is uploaded to a server. Perfect for students who want to
   find their notes fast.
+
+license: GPL-3.0
+contact: https://github.com/anomalyco/Quire
+issues: https://github.com/anomalyco/Quire/issues
+source-code: https://github.com/anomalyco/Quire
+website: https://github.com/anomalyco/Quire
 
 base: core22
 confinement: strict
