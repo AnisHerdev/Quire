@@ -89,6 +89,7 @@ Standard Flutter build commands apply. Firebase configuration files (`google-ser
 
 ### Existing Linux Files
 - `linux/install.sh` — User-facing install script that copies icon + desktop entry to `~/.local/share/`
+- `linux/uninstall.sh` — User-facing uninstall script that reverses `install.sh` (removes the desktop entry and icon, with an optional `--purge-data` flag for runtime data)
 - `linux/quire.desktop` — Desktop entry template (uses `EXEC_PATH_PLACEHOLDER` replaced at install time)
 - `linux/CMakeLists.txt` — Build config; includes patchelf RPATH fix for bundled `.so` files
 - `assets/images/logo.png` — App icon (256x256)

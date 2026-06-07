@@ -46,6 +46,27 @@ to your dock/taskbar for one-click launch.
 If you move the bundle to a different location, re-run `install.sh` to
 update the path in the desktop entry.
 
+### Uninstall
+
+To remove the desktop entry and icon installed by `install.sh`:
+
+```bash
+cd quire
+chmod +x uninstall.sh
+./uninstall.sh
+```
+
+By default this only removes the menu integration (desktop file + icon).
+To also wipe cached notes and sync state, pass `--purge-data`:
+
+```bash
+./uninstall.sh --purge-data
+```
+
+The Quire bundle directory itself is never deleted by the script — the
+output will print its location so you can remove it manually. To
+re-install, just re-run `install.sh`.
+
 ### Snap Store
 
 Quire is also available as a snap on any Linux distribution with snap support:
