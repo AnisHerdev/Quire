@@ -32,12 +32,6 @@ apps:
       - opengl
       - home
 
-slots:
-  dbus-quire:
-    interface: dbus
-    bus: session
-    name: com.quire.app
-
 parts:
   quire:
     plugin: nil
